@@ -393,12 +393,22 @@ public class PageManager {
     }
 
     private void updateButtons(Player player, int currentPage, int maxPage) {
+        if (!isButtonsEnabled()) {
+            player.getInventory().setItem(configManager.getPrevButtonSlot(), null);
+            player.getInventory().setItem(configManager.getNextButtonSlot(), null);
+            return;
+        }
         boolean canPrev = currentPage > 0;
         boolean canNext = currentPage < getEffectiveMaxPages() - 1;
         player.getInventory().setItem(configManager.getPrevButtonSlot(),
                 buttonManager.createPrevButton(currentPage, canPrev));
         player.getInventory().setItem(configManager.getNextButtonSlot(),
                 buttonManager.createNextButton(currentPage, maxPage, canNext));
+    }
+
+    /** 当有效最大页数 > 1 时才显示并保护按钮槽位 */
+    public boolean isButtonsEnabled() {
+        return getEffectiveMaxPages() > 1;
     }
 
     private void clearInventoryMain(Player player) {
@@ -456,39 +466,39 @@ public class PageManager {
     }
 
     /**
-     * 处理按钮槽位冲突（玩家加入时调用）
+     * 处理按钮槽位冲突。
+     * @return 无法放入背包也无法存入新页的物品（调用方应送交接容器）
      */
-    public void handleButtonSlotConflict(Player player) {
+    public List<ItemStack> handleButtonSlotConflict(Player player) {
         UUID uuid = player.getUniqueId();
         int prevSlot = configManager.getPrevButtonSlot();
         int nextSlot = configManager.getNextButtonSlot();
+        List<ItemStack> unplaceable = new ArrayList<>();
 
-        List<ItemStack> conflictItems = new ArrayList<>();
         for (int slot : new int[]{prevSlot, nextSlot}) {
             ItemStack item = player.getInventory().getItem(slot);
             if (item != null && !item.getType().isAir() && !buttonManager.isButton(item)) {
-                conflictItems.add(item);
                 player.getInventory().setItem(slot, null);
-            }
-        }
-
-        for (ItemStack item : conflictItems) {
-            HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(item);
-            if (!leftover.isEmpty()) {
-                // 背包满，存到下一页（懒加载机制下直接写 DB）
-                PlayerPageData data = playerDataCache.get(uuid);
-                int nextPage = (data != null ? data.maxPage : 0) + 1;
-                if (nextPage < getEffectiveMaxPages()) {
-                    Map<Integer, ItemStack> overflowMap = new HashMap<>();
-                    int i = 9;
-                    for (ItemStack overflow : leftover.values()) {
-                        overflowMap.put(i++, overflow);
+                HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(item);
+                if (!leftover.isEmpty()) {
+                    PlayerPageData data = playerDataCache.get(uuid);
+                    int nextPage = (data != null ? data.maxPage : 0) + 1;
+                    if (nextPage < getEffectiveMaxPages()) {
+                        Map<Integer, ItemStack> overflowMap = new HashMap<>();
+                        int i = 9;
+                        for (ItemStack overflow : leftover.values()) {
+                            overflowMap.put(i++, overflow);
+                        }
+                        asyncSavePage(uuid, nextPage, overflowMap);
+                        if (data != null) data.maxPage = Math.max(data.maxPage, nextPage);
+                    } else {
+                        // 页数已满，无处可存，返给调用方走交接容器
+                        unplaceable.addAll(leftover.values());
                     }
-                    asyncSavePage(uuid, nextPage, overflowMap);
-                    if (data != null) data.maxPage = Math.max(data.maxPage, nextPage);
                 }
             }
         }
+        return unplaceable;
     }
 
     //访问器（供外部使用） 
