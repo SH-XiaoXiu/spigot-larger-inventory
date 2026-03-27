@@ -10,277 +10,400 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
 
 /**
- * 分页管理器
- * 负责背包分页的核心逻辑
+ * 分页管理器（内存优先 + 写回缓存模型）
+ * - 所有翻页操作在内存中即时完成
+ * - 每个玩家维护一个 LRU 页面缓存，容量为 PAGE_CACHE_SIZE
+ * - 脏页由定时器批量异步刷入 DB（写入聚合），LRU 驱逐时也触发异步写
+ * - 玩家退出时同步 flush，确保数据安全
+ * - 只有放入物品才算真正创建，纯翻页不更新 maxPage
  */
 public class PageManager {
+
+    /**
+     * 代码层面的绝对上限，防止配置填写离谱数值
+     */
+    public static final int MAX_PAGES_HARD_LIMIT = 99;
+
+    /**
+     * 每个玩家的 LRU 页面缓存大小
+     */
+    private static final int PAGE_CACHE_SIZE = 6;
 
     private final JavaPlugin plugin;
     private final ConfigManager configManager;
     private final ButtonManager buttonManager;
     private final PlayerInventoryDAO dao;
 
-    // 玩家数据缓存
-    private final Map<UUID, PlayerPageData> playerDataCache;
+    private final Map<UUID, PlayerPageData> playerDataCache = new ConcurrentHashMap<>();
 
-    public PageManager(JavaPlugin plugin, ConfigManager configManager, ButtonManager buttonManager, PlayerInventoryDAO dao) {
+    public PageManager(JavaPlugin plugin, ConfigManager configManager,
+                       ButtonManager buttonManager, PlayerInventoryDAO dao) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.buttonManager = buttonManager;
         this.dao = dao;
-        this.playerDataCache = new ConcurrentHashMap<>();
     }
 
+    //内部类 
+
     /**
-     * 初始化玩家数据
+     * 单页缓存条目
      */
-    public void initPlayer(Player player) {
-        UUID uuid = player.getUniqueId();
-        String playerName = player.getName();
-        try {
-            // 创建或更新玩家元数据
-            dao.createOrUpdatePlayerMeta(uuid, playerName);
+    static class CachedPage {
+        final Map<Integer, ItemStack> items;
+        volatile boolean dirty;
 
-            // 加载玩家元数据
-            PlayerMeta meta = dao.getPlayerMeta(uuid);
-            int currentPage;
-            int maxPage;
+        CachedPage(Map<Integer, ItemStack> items, boolean dirty) {
+            this.items = items;
+            this.dirty = dirty;
+        }
 
-            if (meta != null) {
-                currentPage = meta.getCurrentPage();
-                maxPage = meta.getMaxPage();
-            } else {
-                currentPage = 0;
-                maxPage = 0;
-            }
-
-            // 检查是否有超页数据
-            int configMaxPages = configManager.getMaxPages();
-            boolean hasOverflow = configMaxPages > 0 && maxPage >= configMaxPages;
-
-            // 缓存数据
-            playerDataCache.put(uuid, new PlayerPageData(currentPage, maxPage, hasOverflow));
-
-            // 加载当前页物品
-            Map<Integer, ItemStack> items = dao.loadPageItems(uuid, currentPage);
-            loadItemsToInventory(player, items);
-
-            // 设置按钮
-            updateButtons(player, currentPage, maxPage, hasOverflow);
-
-            plugin.getLogger().info("玩家 " + player.getName() + " 的背包数据已加载，当前页: " + currentPage + ", 最大页: " + maxPage);
-        } catch (SQLException e) {
-            plugin.getLogger().severe("加载玩家 " + player.getName() + " 数据失败: " + e.getMessage());
-            // 创建默认数据
-            playerDataCache.put(uuid, new PlayerPageData(0, 0, false));
-            updateButtons(player, 0, 0, false);
+        boolean hasItems() {
+            return !items.isEmpty();
         }
     }
 
     /**
-     * 保存并清理玩家数据
+     * 基于 LinkedHashMap 的 LRU 缓存。
+     * accessOrder=true 保证最近访问的条目最晚被驱逐。
+     * 驱逐脏页时自动触发异步 DB 写入。
      */
-    public void saveAndClearPlayer(Player player) {
-        UUID uuid = player.getUniqueId();
-        PlayerPageData data = playerDataCache.get(uuid);
-        if (data == null) {
-            return;
+    static class PageLRUCache extends LinkedHashMap<Integer, CachedPage> {
+        private final int capacity;
+        private final BiConsumer<Integer, Map<Integer, ItemStack>> onDirtyEvict;
+
+        PageLRUCache(int capacity, BiConsumer<Integer, Map<Integer, ItemStack>> onDirtyEvict) {
+            super(capacity + 1, 0.75f, true);
+            this.capacity = capacity;
+            this.onDirtyEvict = onDirtyEvict;
         }
 
-        try {
-            // 保存当前页物品
-            saveCurrentPage(player);
-        } catch (SQLException e) {
-            plugin.getLogger().severe("保存玩家 " + player.getName() + " 数据失败: " + e.getMessage());
-        }
-
-        // 清理缓存
-        playerDataCache.remove(uuid);
-    }
-
-    /**
-     * 保存当前页物品
-     */
-    public void saveCurrentPage(Player player) throws SQLException {
-        UUID uuid = player.getUniqueId();
-        PlayerPageData data = playerDataCache.get(uuid);
-        if (data == null) {
-            return;
-        }
-
-        int currentPage = data.currentPage;
-        int prevSlot = configManager.getPrevButtonSlot();
-        int nextSlot = configManager.getNextButtonSlot();
-
-        // 收集物品（排除按钮位置）
-        Map<Integer, ItemStack> items = new HashMap<>();
-        ItemStack[] contents = player.getInventory().getContents();
-        for (int i = 9; i <= 35; i++) { // 只保存背包主体（9-35）
-            if (i != prevSlot && i != nextSlot) {
-                ItemStack item = contents[i];
-                if (item != null && !item.getType().isAir() && !buttonManager.isButton(item)) {
-                    items.put(i, item.clone());
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<Integer, CachedPage> eldest) {
+            if (size() > capacity) {
+                CachedPage page = eldest.getValue();
+                if (page.dirty && page.hasItems()) {
+                    // 快照后再异步写，避免驱逐后 items map 被引用
+                    onDirtyEvict.accept(eldest.getKey(), new HashMap<>(page.items));
                 }
-            }
-        }
-
-        // 保存到数据库
-        dao.savePageItems(uuid, currentPage, items);
-    }
-
-    /**
-     * 翻到上一页
-     */
-    public void prevPage(Player player) {
-        UUID uuid = player.getUniqueId();
-        PlayerPageData data = playerDataCache.get(uuid);
-        if (data == null || data.currentPage <= 0) {
-            return;
-        }
-
-        switchToPage(player, data.currentPage - 1);
-    }
-
-    /**
-     * 翻到下一页
-     */
-    public void nextPage(Player player) {
-        UUID uuid = player.getUniqueId();
-        PlayerPageData data = playerDataCache.get(uuid);
-        if (data == null) {
-            return;
-        }
-
-        // 检查是否可以创建新页
-        if (!canCreateNewPage(player)) {
-            return;
-        }
-
-        switchToPage(player, data.currentPage + 1);
-    }
-
-    /**
-     * 切换到指定页
-     */
-    public void switchToPage(Player player, int targetPage) {
-        UUID uuid = player.getUniqueId();
-        PlayerPageData data = playerDataCache.get(uuid);
-        if (data == null) {
-            return;
-        }
-
-        try {
-            // 保存当前页
-            saveCurrentPage(player);
-
-            // 清空背包（保留快捷栏、装备、副手）
-            clearInventoryMain(player);
-
-            // 加载目标页物品
-            Map<Integer, ItemStack> items = dao.loadPageItems(uuid, targetPage);
-            loadItemsToInventory(player, items);
-
-            // 更新元数据
-            int newMaxPage = Math.max(data.maxPage, targetPage);
-            data.currentPage = targetPage;
-            data.maxPage = newMaxPage;
-            dao.updatePlayerMeta(uuid, targetPage, newMaxPage);
-
-            // 更新按钮
-            updateButtons(player, targetPage, newMaxPage, data.hasOverflow);
-
-            plugin.getLogger().fine("玩家 " + player.getName() + " 翻页到第 " + (targetPage + 1) + " 页");
-        } catch (SQLException e) {
-            plugin.getLogger().severe("玩家 " + player.getName() + " 翻页失败: " + e.getMessage());
-        }
-    }
-
-    /**
-     * 检查是否可以创建新页
-     */
-    public boolean canCreateNewPage(Player player) {
-        int maxPages = configManager.getMaxPages();
-        if (maxPages <= 0) {
-            return true; // 无限制
-        }
-
-        PlayerPageData data = playerDataCache.get(player.getUniqueId());
-        if (data == null) {
-            return true;
-        }
-
-        // 如果当前已达上限，检查是否有超页数据
-        if (data.currentPage >= maxPages - 1) {
-            // 如果有超页数据，允许翻过去查看
-            if (data.hasOverflow) {
                 return true;
             }
             return false;
         }
-
-        return true;
     }
 
     /**
-     * 检查是否可以向前翻
+     * 玩家运行时状态
      */
+    public static class PlayerPageData {
+        public volatile int currentPage;
+        public int maxPage;        // 有内容的最高页码（仅在保存非空页时更新）
+        public volatile boolean switching;
+        final PageLRUCache cache;
+
+        PlayerPageData(int currentPage, int maxPage, PageLRUCache cache) {
+            this.currentPage = currentPage;
+            this.maxPage = maxPage;
+            this.cache = cache;
+        }
+    }
+
+    /**
+     * 用于批量刷脏的临时任务描述
+     */
+    private static class WriteTask {
+        final UUID uuid;
+        final int pageNum;
+        final Map<Integer, ItemStack> items;
+        final CachedPage source; // 写入成功后清 dirty 标记
+
+        WriteTask(UUID uuid, int pageNum, Map<Integer, ItemStack> items, CachedPage source) {
+            this.uuid = uuid;
+            this.pageNum = pageNum;
+            this.items = items;
+            this.source = source;
+        }
+    }
+
+    //生命周期 
+
+    /**
+     * 玩家加入：仅加载当前页，其余页懒加载
+     */
+    public void initPlayer(Player player) {
+        UUID uuid = player.getUniqueId();
+        try {
+            dao.createOrUpdatePlayerMeta(uuid, player.getName());
+            PlayerMeta meta = dao.getPlayerMeta(uuid);
+
+            int currentPage = meta != null ? meta.getCurrentPage() : 0;
+            int maxPage = meta != null ? meta.getMaxPage() : 0;
+
+            PlayerPageData data = createPlayerData(uuid, currentPage, maxPage);
+            playerDataCache.put(uuid, data);
+
+            Map<Integer, ItemStack> items = dao.loadPageItems(uuid, currentPage);
+            data.cache.put(currentPage, new CachedPage(new HashMap<>(items), false));
+            loadItemsToInventory(player, items);
+            updateButtons(player, currentPage, maxPage);
+
+            plugin.getLogger().info("玩家 " + player.getName() + " 数据已加载，当前页: "
+                    + (currentPage + 1) + "，已用页: " + (maxPage + 1));
+        } catch (SQLException e) {
+            plugin.getLogger().severe("加载玩家 " + player.getName() + " 数据失败: " + e.getMessage());
+            PlayerPageData data = createPlayerData(uuid, 0, 0);
+            playerDataCache.put(uuid, data);
+            updateButtons(player, 0, 0);
+        }
+    }
+
+    /**
+     * 玩家退出：同步 flush 所有脏页，确保数据不丢失
+     */
+    public void saveAndClearPlayer(Player player) {
+        UUID uuid = player.getUniqueId();
+        PlayerPageData data = playerDataCache.get(uuid);
+        if (data == null) return;
+
+        snapshotToCache(player, data);
+        flushDirtyPagesSync(uuid, data);
+        playerDataCache.remove(uuid);
+    }
+
+    //翻页逻辑 
+
+    public void prevPage(Player player) {
+        UUID uuid = player.getUniqueId();
+        PlayerPageData data = playerDataCache.get(uuid);
+        if (data != null && data.currentPage > 0) {
+            switchToPage(player, data.currentPage - 1);
+        }
+    }
+
+    public void nextPage(Player player) {
+        UUID uuid = player.getUniqueId();
+        PlayerPageData data = playerDataCache.get(uuid);
+        if (data != null && data.currentPage < getEffectiveMaxPages() - 1) {
+            switchToPage(player, data.currentPage + 1);
+        }
+    }
+
     public boolean canPrevPage(Player player) {
         PlayerPageData data = playerDataCache.get(player.getUniqueId());
-        return data != null && data.currentPage > 0;
+        return data != null && !data.switching && data.currentPage > 0;
     }
 
-    /**
-     * 检查是否可以向后翻
-     */
     public boolean canNextPage(Player player) {
         PlayerPageData data = playerDataCache.get(player.getUniqueId());
-        if (data == null) {
-            return false;
-        }
-
-        // 如果有超页数据，总是允许向后
-        if (data.hasOverflow && data.currentPage < data.maxPage) {
-            return true;
-        }
-
-        // 否则检查是否可以创建新页
-        return canCreateNewPage(player);
+        return data != null && !data.switching && data.currentPage < getEffectiveMaxPages() - 1;
     }
 
     /**
-     * 恢复按钮到正确位置（供事件监听器在排序模组操作后调用）
+     * 切换到目标页。
+     * 优先命中 LRU 缓存；缓存未命中时异步从 DB 加载。
+     * 前一页立即写入缓存（脏），不阻塞主线程。
+     */
+    public void switchToPage(Player player, int targetPage) {
+        UUID uuid = player.getUniqueId();
+        PlayerPageData data = playerDataCache.get(uuid);
+        if (data == null || data.switching) return;
+        if (targetPage < 0 || targetPage >= getEffectiveMaxPages()) return;
+
+        data.switching = true;
+
+        // 将当前页内容快照进缓存（标脏）
+        snapshotToCache(player, data);
+
+        int prevPage = data.currentPage;
+        data.currentPage = targetPage;
+
+        // 立即清空背包 + 更新按钮（UI 即时响应，不等 IO）
+        clearInventoryMain(player);
+        updateButtons(player, targetPage, data.maxPage);
+
+        // 尝试命中缓存
+        CachedPage cached = data.cache.get(targetPage);
+        if (cached != null) {
+            loadItemsToInventory(player, cached.items);
+            updateButtons(player, targetPage, data.maxPage);
+            data.switching = false;
+            return;
+        }
+
+        // 缓存未命中：异步从 DB 加载
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                Map<Integer, ItemStack> items = dao.loadPageItems(uuid, targetPage);
+                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    data.switching = false;
+                    if (!player.isOnline()) return;
+                    data.cache.put(targetPage, new CachedPage(new HashMap<>(items), false));
+                    loadItemsToInventory(player, items);
+                    updateButtons(player, targetPage, data.maxPage);
+                });
+            } catch (SQLException e) {
+                plugin.getLogger().severe("加载页面失败 [" + uuid + " 页" + (targetPage + 1) + "]: " + e.getMessage());
+                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    data.switching = false;
+                    // 回退到之前的页码（加载失败）
+                    data.currentPage = prevPage;
+                    updateButtons(player, prevPage, data.maxPage);
+                });
+            }
+        });
+    }
+
+    //持久化 
+
+    /**
+     * 定时刷脏入口（在主线程调用）。
+     * 先快照所有玩家的当前页，然后收集脏页，最后异步批量写 DB。
+     * 短时间内的多次操作自然聚合为一次写入。
+     */
+    public void flushAllDirtyPages() {
+        // 快照当前页（必须主线程）
+        for (Map.Entry<UUID, PlayerPageData> entry : playerDataCache.entrySet()) {
+            PlayerPageData data = entry.getValue();
+            if (data.switching) continue;
+            Player player = plugin.getServer().getPlayer(entry.getKey());
+            if (player != null && player.isOnline()) {
+                snapshotToCache(player, data);
+            }
+        }
+
+        // 收集脏页快照
+        List<WriteTask> tasks = new ArrayList<>();
+        Map<UUID, int[]> metas = new LinkedHashMap<>(); // uuid -> [currentPage, maxPage]
+
+        for (Map.Entry<UUID, PlayerPageData> entry : playerDataCache.entrySet()) {
+            UUID uuid = entry.getKey();
+            PlayerPageData data = entry.getValue();
+            boolean hasDirty = false;
+            for (Map.Entry<Integer, CachedPage> pageEntry : data.cache.entrySet()) {
+                CachedPage page = pageEntry.getValue();
+                if (page.dirty) {
+                    tasks.add(new WriteTask(uuid, pageEntry.getKey(), new HashMap<>(page.items), page));
+                    hasDirty = true;
+                }
+            }
+            if (hasDirty) {
+                metas.put(uuid, new int[]{data.currentPage, data.maxPage});
+            }
+        }
+
+        if (tasks.isEmpty()) return;
+
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            for (WriteTask task : tasks) {
+                try {
+                    dao.savePageItems(task.uuid, task.pageNum, task.items);
+                    task.source.dirty = false; // 写入成功后清标记
+                } catch (SQLException e) {
+                    plugin.getLogger().warning("异步写入失败 [页" + (task.pageNum + 1) + "]: " + e.getMessage());
+                }
+            }
+            Set<UUID> done = new HashSet<>();
+            for (WriteTask task : tasks) {
+                if (done.add(task.uuid)) {
+                    int[] meta = metas.get(task.uuid);
+                    try {
+                        dao.updatePlayerMeta(task.uuid, meta[0], meta[1]);
+                    } catch (SQLException e) {
+                        plugin.getLogger().warning("更新元数据失败: " + e.getMessage());
+                    }
+                }
+            }
+        });
+    }
+
+    /**
+     * 供 AdminCommand 等场景手动触发单玩家保存
+     */
+    public void saveCurrentPage(Player player) throws SQLException {
+        UUID uuid = player.getUniqueId();
+        PlayerPageData data = playerDataCache.get(uuid);
+        if (data == null) return;
+        Map<Integer, ItemStack> items = snapshotCurrentPage(player);
+        dao.savePageItems(uuid, data.currentPage, items);
+    }
+
+    /**
+     * 快照当前页内容到 LRU 缓存（标脏）。
+     * 只有快照到非空页面时才更新 maxPage，实现"有内容才创建页"语义。
+     */
+    private void snapshotToCache(Player player, PlayerPageData data) {
+        Map<Integer, ItemStack> items = snapshotCurrentPage(player);
+        if (!items.isEmpty() && data.currentPage > data.maxPage) {
+            data.maxPage = data.currentPage;
+        }
+        CachedPage existing = data.cache.get(data.currentPage);
+        if (existing != null) {
+            // 复用条目，直接更新内容（避免触发不必要的 LRU 调整）
+            existing.items.clear();
+            existing.items.putAll(items);
+            existing.dirty = true;
+        } else {
+            data.cache.put(data.currentPage, new CachedPage(new HashMap<>(items), true));
+        }
+    }
+
+    /**
+     * 同步刷所有脏页（玩家退出/服务器关闭时调用）
+     */
+    private void flushDirtyPagesSync(UUID uuid, PlayerPageData data) {
+        try {
+            for (Map.Entry<Integer, CachedPage> entry : data.cache.entrySet()) {
+                CachedPage page = entry.getValue();
+                if (page.dirty) {
+                    dao.savePageItems(uuid, entry.getKey(), page.items);
+                    page.dirty = false;
+                }
+            }
+            dao.updatePlayerMeta(uuid, data.currentPage, data.maxPage);
+        } catch (SQLException e) {
+            plugin.getLogger().severe("同步保存玩家数据失败 [" + uuid + "]: " + e.getMessage());
+        }
+    }
+
+    /**
+     * 异步写入单页（LRU 驱逐时调用）
+     */
+    private void asyncSavePage(UUID uuid, int pageNum, Map<Integer, ItemStack> items) {
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                dao.savePageItems(uuid, pageNum, items);
+            } catch (SQLException e) {
+                plugin.getLogger().warning("LRU 驱逐写入失败 [页" + (pageNum + 1) + "]: " + e.getMessage());
+            }
+        });
+    }
+
+    //UI 相关 
+
+    /**
+     * 恢复按钮到正确位置（供事件监听器调用，防止排序模组移动按钮）
      */
     public void restoreButtons(Player player) {
         PlayerPageData data = playerDataCache.get(player.getUniqueId());
-        if (data == null) {
-            return;
-        }
-        updateButtons(player, data.currentPage, data.maxPage, data.hasOverflow);
+        if (data == null) return;
+        updateButtons(player, data.currentPage, data.maxPage);
     }
 
-    /**
-     * 更新按钮显示
-     */
-    private void updateButtons(Player player, int currentPage, int maxPage, boolean hasOverflow) {
+    private void updateButtons(Player player, int currentPage, int maxPage) {
         boolean canPrev = currentPage > 0;
-        boolean canNext = canNextPage(player);
-
-        ItemStack prevButton = buttonManager.createPrevButton(currentPage, canPrev);
-        ItemStack nextButton = buttonManager.createNextButton(currentPage, maxPage, canNext);
-
-        player.getInventory().setItem(configManager.getPrevButtonSlot(), prevButton);
-        player.getInventory().setItem(configManager.getNextButtonSlot(), nextButton);
+        boolean canNext = currentPage < getEffectiveMaxPages() - 1;
+        player.getInventory().setItem(configManager.getPrevButtonSlot(),
+                buttonManager.createPrevButton(currentPage, canPrev));
+        player.getInventory().setItem(configManager.getNextButtonSlot(),
+                buttonManager.createNextButton(currentPage, maxPage, canNext));
     }
 
-    /**
-     * 清空背包主体部分（槽位9-35）
-     */
     private void clearInventoryMain(Player player) {
         int prevSlot = configManager.getPrevButtonSlot();
         int nextSlot = configManager.getNextButtonSlot();
-
         for (int i = 9; i <= 35; i++) {
             if (i != prevSlot && i != nextSlot) {
                 player.getInventory().setItem(i, null);
@@ -288,103 +411,99 @@ public class PageManager {
         }
     }
 
-    /**
-     * 加载物品到背包
-     */
     private void loadItemsToInventory(Player player, Map<Integer, ItemStack> items) {
-        if (items == null) {
-            return;
-        }
+        if (items == null) return;
         for (Map.Entry<Integer, ItemStack> entry : items.entrySet()) {
             player.getInventory().setItem(entry.getKey(), entry.getValue());
         }
     }
 
+    //工具方法 
+
     /**
-     * 处理按钮位置冲突
-     * 当插件启动时，检查按钮位置是否有物品，如果有则迁移
+     * 快照当前页物品（主线程调用）。
+     * 返回的 map 是独立副本，可安全传递给异步线程。
+     */
+    public Map<Integer, ItemStack> snapshotCurrentPage(Player player) {
+        int prevSlot = configManager.getPrevButtonSlot();
+        int nextSlot = configManager.getNextButtonSlot();
+        Map<Integer, ItemStack> items = new HashMap<>();
+        ItemStack[] contents = player.getInventory().getContents();
+        for (int i = 9; i <= 35; i++) {
+            if (i == prevSlot || i == nextSlot) continue;
+            ItemStack item = contents[i];
+            if (item != null && !item.getType().isAir() && !buttonManager.isButton(item)) {
+                items.put(i, item.clone());
+            }
+        }
+        return items;
+    }
+
+    /**
+     * 返回实际生效的最大页数（受配置和硬上限双重约束）
+     */
+    public int getEffectiveMaxPages() {
+        int configured = configManager.getMaxPages();
+        if (configured <= 0) return MAX_PAGES_HARD_LIMIT;
+        return Math.min(configured, MAX_PAGES_HARD_LIMIT);
+    }
+
+    private PlayerPageData createPlayerData(UUID uuid, int currentPage, int maxPage) {
+        BiConsumer<Integer, Map<Integer, ItemStack>> evictHandler =
+                (pageNum, items) -> asyncSavePage(uuid, pageNum, items);
+        return new PlayerPageData(currentPage, maxPage,
+                new PageLRUCache(PAGE_CACHE_SIZE, evictHandler));
+    }
+
+    /**
+     * 处理按钮槽位冲突（玩家加入时调用）
      */
     public void handleButtonSlotConflict(Player player) {
         UUID uuid = player.getUniqueId();
         int prevSlot = configManager.getPrevButtonSlot();
         int nextSlot = configManager.getNextButtonSlot();
 
-        ItemStack prevItem = player.getInventory().getItem(prevSlot);
-        ItemStack nextItem = player.getInventory().getItem(nextSlot);
-
         List<ItemStack> conflictItems = new ArrayList<>();
-        if (prevItem != null && !prevItem.getType().isAir() && !buttonManager.isButton(prevItem)) {
-            conflictItems.add(prevItem);
-            player.getInventory().setItem(prevSlot, null);
-        }
-        if (nextItem != null && !nextItem.getType().isAir() && !buttonManager.isButton(nextItem)) {
-            conflictItems.add(nextItem);
-            player.getInventory().setItem(nextSlot, null);
+        for (int slot : new int[]{prevSlot, nextSlot}) {
+            ItemStack item = player.getInventory().getItem(slot);
+            if (item != null && !item.getType().isAir() && !buttonManager.isButton(item)) {
+                conflictItems.add(item);
+                player.getInventory().setItem(slot, null);
+            }
         }
 
-        if (!conflictItems.isEmpty()) {
-            // 尝试将冲突物品放入背包空位
-            for (ItemStack item : conflictItems) {
-                HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(item);
-                if (!leftover.isEmpty()) {
-                    // 背包满了，存到下一页
-                    try {
-                        PlayerPageData data = playerDataCache.get(uuid);
-                        int nextPage = (data != null ? data.maxPage : 0) + 1;
-                        List<ItemStack> overflowItems = new ArrayList<>(leftover.values());
-                        for (int i = 0; i < overflowItems.size(); i++) {
-                            Map<Integer, ItemStack> pageItems = new HashMap<>();
-                            pageItems.put(i, overflowItems.get(i));
-                            dao.savePageItems(uuid, nextPage, pageItems);
-                        }
-                        if (data != null) {
-                            data.maxPage = Math.max(data.maxPage, nextPage);
-                            dao.updateMaxPage(uuid, data.maxPage);
-                        }
-                        plugin.getLogger().info("玩家 " + player.getName() + " 的按钮位置冲突物品已移至第 " + (nextPage + 1) + " 页");
-                    } catch (SQLException e) {
-                        plugin.getLogger().severe("处理按钮位置冲突失败: " + e.getMessage());
+        for (ItemStack item : conflictItems) {
+            HashMap<Integer, ItemStack> leftover = player.getInventory().addItem(item);
+            if (!leftover.isEmpty()) {
+                // 背包满，存到下一页（懒加载机制下直接写 DB）
+                PlayerPageData data = playerDataCache.get(uuid);
+                int nextPage = (data != null ? data.maxPage : 0) + 1;
+                if (nextPage < getEffectiveMaxPages()) {
+                    Map<Integer, ItemStack> overflowMap = new HashMap<>();
+                    int i = 9;
+                    for (ItemStack overflow : leftover.values()) {
+                        overflowMap.put(i++, overflow);
                     }
+                    asyncSavePage(uuid, nextPage, overflowMap);
+                    if (data != null) data.maxPage = Math.max(data.maxPage, nextPage);
                 }
             }
         }
     }
 
-    /**
-     * 获取玩家分页数据
-     */
+    //访问器（供外部使用） 
+
     public PlayerPageData getPlayerData(UUID uuid) {
         return playerDataCache.get(uuid);
     }
 
-    /**
-     * 获取玩家当前页
-     */
     public int getCurrentPage(UUID uuid) {
         PlayerPageData data = playerDataCache.get(uuid);
         return data != null ? data.currentPage : 0;
     }
 
-    /**
-     * 获取玩家最大页
-     */
     public int getMaxPage(UUID uuid) {
         PlayerPageData data = playerDataCache.get(uuid);
         return data != null ? data.maxPage : 0;
-    }
-
-    /**
-     * 玩家分页数据
-     */
-    public static class PlayerPageData {
-        public int currentPage;
-        public int maxPage;
-        public boolean hasOverflow; // 是否有超页数据
-
-        public PlayerPageData(int currentPage, int maxPage, boolean hasOverflow) {
-            this.currentPage = currentPage;
-            this.maxPage = maxPage;
-            this.hasOverflow = hasOverflow;
-        }
     }
 }

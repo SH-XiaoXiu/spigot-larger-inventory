@@ -12,7 +12,10 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 /**
  * 玩家背包数据访问层
@@ -58,7 +61,7 @@ public class PlayerInventoryDAO {
         }
     }
 
-    // ==================== 玩家元数据操作 ====================
+    // 玩家元数据操作
 
     /**
      * 获取或创建玩家元数据
@@ -127,35 +130,6 @@ public class PlayerInventoryDAO {
         }
     }
 
-    /**
-     * 更新玩家当前页
-     */
-    public void updateCurrentPage(UUID uuid, int currentPage) throws SQLException {
-        String sql = "UPDATE player_meta SET current_page = ?, data_version = ?, updated_at = ? WHERE uuid = ?";
-        try (Connection conn = databaseManager.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, currentPage);
-            stmt.setInt(2, DATA_VERSION);
-            stmt.setLong(3, System.currentTimeMillis());
-            stmt.setString(4, uuid.toString());
-            stmt.executeUpdate();
-        }
-    }
-
-    /**
-     * 更新玩家最大页数
-     */
-    public void updateMaxPage(UUID uuid, int maxPage) throws SQLException {
-        String sql = "UPDATE player_meta SET max_page = ?, data_version = ?, updated_at = ? WHERE uuid = ?";
-        try (Connection conn = databaseManager.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setInt(1, maxPage);
-            stmt.setInt(2, DATA_VERSION);
-            stmt.setLong(3, System.currentTimeMillis());
-            stmt.setString(4, uuid.toString());
-            stmt.executeUpdate();
-        }
-    }
 
     /**
      * 更新玩家元数据
@@ -173,51 +147,45 @@ public class PlayerInventoryDAO {
         }
     }
 
-    // ==================== 玩家物品操作 ====================
+    // 玩家物品操作
 
     /**
      * 保存单页物品
      */
     public void savePageItems(UUID uuid, int pageNumber, Map<Integer, ItemStack> items) throws SQLException {
-        Connection conn = databaseManager.getConnection();
-        try {
+        try (Connection conn = databaseManager.getConnection()) {
             conn.setAutoCommit(false);
-
-            // 先删除该页的旧数据
-            String deleteSql = "DELETE FROM player_inventory WHERE uuid = ? AND page_number = ?";
-            try (PreparedStatement deleteStmt = conn.prepareStatement(deleteSql)) {
-                deleteStmt.setString(1, uuid.toString());
-                deleteStmt.setInt(2, pageNumber);
-                deleteStmt.executeUpdate();
-            }
-
-            // 插入新数据
-            long now = System.currentTimeMillis();
-            String insertSql = "INSERT INTO player_inventory (uuid, slot_index, page_number, item_data, data_version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)";
-            try (PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
-                for (Map.Entry<Integer, ItemStack> entry : items.entrySet()) {
-                    int slot = entry.getKey();
-                    ItemStack item = entry.getValue();
-                    if (item != null && !item.getType().isAir()) {
-                        insertStmt.setString(1, uuid.toString());
-                        insertStmt.setInt(2, slot);
-                        insertStmt.setInt(3, pageNumber);
-                        insertStmt.setBytes(4, serializeItem(item));
-                        insertStmt.setInt(5, DATA_VERSION);
-                        insertStmt.setLong(6, now);
-                        insertStmt.setLong(7, now);
-                        insertStmt.addBatch();
-                    }
+            try {
+                String deleteSql = "DELETE FROM player_inventory WHERE uuid = ? AND page_number = ?";
+                try (PreparedStatement deleteStmt = conn.prepareStatement(deleteSql)) {
+                    deleteStmt.setString(1, uuid.toString());
+                    deleteStmt.setInt(2, pageNumber);
+                    deleteStmt.executeUpdate();
                 }
-                insertStmt.executeBatch();
-            }
 
-            conn.commit();
-        } catch (IOException e) {
-            conn.rollback();
-            throw new SQLException("序列化物品失败", e);
-        } finally {
-            conn.setAutoCommit(true);
+                long now = System.currentTimeMillis();
+                String insertSql = "INSERT INTO player_inventory (uuid, slot_index, page_number, item_data, data_version, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)";
+                try (PreparedStatement insertStmt = conn.prepareStatement(insertSql)) {
+                    for (Map.Entry<Integer, ItemStack> entry : items.entrySet()) {
+                        ItemStack item = entry.getValue();
+                        if (item != null && !item.getType().isAir()) {
+                            insertStmt.setString(1, uuid.toString());
+                            insertStmt.setInt(2, entry.getKey());
+                            insertStmt.setInt(3, pageNumber);
+                            insertStmt.setBytes(4, serializeItem(item));
+                            insertStmt.setInt(5, DATA_VERSION);
+                            insertStmt.setLong(6, now);
+                            insertStmt.setLong(7, now);
+                            insertStmt.addBatch();
+                        }
+                    }
+                    insertStmt.executeBatch();
+                }
+                conn.commit();
+            } catch (IOException | SQLException e) {
+                conn.rollback();
+                throw (e instanceof SQLException se) ? se : new SQLException("序列化物品失败", e);
+            }
         }
     }
 
@@ -250,22 +218,6 @@ public class PlayerInventoryDAO {
         return items;
     }
 
-    /**
-     * 获取玩家所有页码
-     */
-    public Set<Integer> getPlayerPages(UUID uuid) throws SQLException {
-        Set<Integer> pages = new HashSet<>();
-        String sql = "SELECT DISTINCT page_number FROM player_inventory WHERE uuid = ?";
-        try (Connection conn = databaseManager.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, uuid.toString());
-            ResultSet rs = stmt.executeQuery();
-            while (rs.next()) {
-                pages.add(rs.getInt("page_number"));
-            }
-        }
-        return pages;
-    }
 
     /**
      * 获取玩家所有物品（按页分组）
@@ -309,42 +261,7 @@ public class PlayerInventoryDAO {
         }
     }
 
-    // ==================== 备份操作 ====================
-
-    /**
-     * 备份物品
-     */
-    public void backupItem(UUID uuid, int slotIndex, int pageNumber, ItemStack item, String reason, long restoreBefore) throws SQLException {
-        String sql = "INSERT INTO inventory_backup (uuid, slot_index, page_number, item_data, reason, data_version, backup_time, restore_before) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
-        try (Connection conn = databaseManager.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, uuid.toString());
-            stmt.setInt(2, slotIndex);
-            stmt.setInt(3, pageNumber);
-            stmt.setBytes(4, serializeItem(item));
-            stmt.setString(5, reason);
-            stmt.setInt(6, DATA_VERSION);
-            stmt.setLong(7, System.currentTimeMillis());
-            stmt.setLong(8, restoreBefore);
-            stmt.executeUpdate();
-        } catch (IOException e) {
-            throw new SQLException("序列化物品失败", e);
-        }
-    }
-
-    /**
-     * 清理过期备份
-     */
-    public void cleanupExpiredBackups() throws SQLException {
-        String sql = "DELETE FROM inventory_backup WHERE restore_before < ?";
-        try (Connection conn = databaseManager.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setLong(1, System.currentTimeMillis());
-            stmt.executeUpdate();
-        }
-    }
-
-    // ==================== 交接容器操作 ====================
+    // 交接容器操作
 
     /**
      * 创建交接容器物品

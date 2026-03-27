@@ -14,9 +14,18 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.plugin.java.JavaPlugin;
 
+import java.util.Collections;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+
 public class InventoryClickListener implements Listener {
 
     private final JavaPlugin plugin;
+
+    // 同一玩家在同一 tick 内只调度一次，防止多事件触发包洪水（如创造清空背包）
+    private final Set<UUID> pendingUpdate = Collections.newSetFromMap(new ConcurrentHashMap<>());
+    private final Set<UUID> pendingRestore = Collections.newSetFromMap(new ConcurrentHashMap<>());
     private final ConfigManager configManager;
     private final ButtonManager buttonManager;
     private final PageManager pageManager;
@@ -119,10 +128,20 @@ public class InventoryClickListener implements Listener {
     }
 
     private void scheduleInventoryUpdate(Player player) {
-        plugin.getServer().getScheduler().runTask(plugin, player::updateInventory);
+        if (pendingUpdate.add(player.getUniqueId())) {
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                pendingUpdate.remove(player.getUniqueId());
+                player.updateInventory();
+            });
+        }
     }
 
     private void scheduleButtonRestore(Player player) {
-        plugin.getServer().getScheduler().runTask(plugin, () -> pageManager.restoreButtons(player));
+        if (pendingRestore.add(player.getUniqueId())) {
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                pendingRestore.remove(player.getUniqueId());
+                pageManager.restoreButtons(player);
+            });
+        }
     }
 }

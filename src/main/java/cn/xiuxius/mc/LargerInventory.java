@@ -26,7 +26,6 @@ public final class LargerInventory extends JavaPlugin {
 
     // 定时任务
     private BukkitTask autoSaveTask;
-    private BukkitTask backupCleanupTask;
 
     @Override
     public void onEnable() {
@@ -83,10 +82,6 @@ public final class LargerInventory extends JavaPlugin {
         if (autoSaveTask != null) {
             autoSaveTask.cancel();
         }
-        if (backupCleanupTask != null) {
-            backupCleanupTask.cancel();
-        }
-
         // 保存所有在线玩家数据
         for (Player player : Bukkit.getOnlinePlayers()) {
             pageManager.saveAndClearPlayer(player);
@@ -137,27 +132,11 @@ public final class LargerInventory extends JavaPlugin {
     private void startScheduledTasks() {
         int autoSaveInterval = configManager.getAutoSaveIntervalSeconds();
 
-        // 自动保存任务
-        autoSaveTask = Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> {
-            for (Player player : Bukkit.getOnlinePlayers()) {
-                try {
-                    pageManager.saveCurrentPage(player);
-                } catch (Exception e) {
-                    getLogger().warning("自动保存玩家 " + player.getName() + " 数据失败: " + e.getMessage());
-                }
-            }
-            getLogger().fine("自动保存完成");
+        // 定时刷脏任务（主线程快照 + 内部异步写 DB，实现写入聚合）
+        autoSaveTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
+            pageManager.flushAllDirtyPages();
+            getLogger().fine("脏页刷写完成");
         }, autoSaveInterval * 20L, autoSaveInterval * 20L);
-
-        // 备份清理任务（每小时执行一次）
-        backupCleanupTask = Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> {
-            try {
-                playerInventoryDAO.cleanupExpiredBackups();
-                getLogger().fine("过期备份已清理");
-            } catch (Exception e) {
-                getLogger().warning("清理过期备份失败: " + e.getMessage());
-            }
-        }, 20L * 60 * 60, 20L * 60 * 60);
 
         getLogger().info("定时任务已启动：自动保存间隔 " + autoSaveInterval + " 秒");
     }
