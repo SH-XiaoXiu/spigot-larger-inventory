@@ -18,6 +18,14 @@
 
 ![FE2F9BE96248ADBDEBC59EA3CD2D3C84.gif](screenshots/FE2F9BE96248ADBDEBC59EA3CD2D3C84.gif)
 
+
+
+## 交接系统
+
+![2026-03-27_22-37-06.png](screenshots/2026-03-27_22-37-06.png)
+![2026-03-27_22-38-06.png](screenshots/2026-03-27_22-38-06.png)
+
+
 ## 环境要求
 
 - Java 21+
@@ -66,11 +74,6 @@ settings:
 |----------|------|------|
 | `largerinventory.use` | 使用扩展背包功能 | 玩家 |
 | `largerinventory.admin` | 管理员命令权限 | OP |
-
-## 技术细节
-
-![2026-03-27_22-37-06.png](screenshots/2026-03-27_22-37-06.png)
-![2026-03-27_22-38-06.png](screenshots/2026-03-27_22-38-06.png)
 
 ### 数据存储
 
