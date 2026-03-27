@@ -6,3 +6,41 @@ prefix: LargerBag
 authors: [ XiaoXiu ]
 description: 更大的背包
 website: www.xiuxius.cn
+
+commands:
+  largerinventory:
+    description: LargerInventory主命令
+    usage: |
+      /<command> opencontainer - 打开交接容器
+      /<command> info - 查看背包信息
+      /<command> forcereset - 重置所有超出限制的背包(管理员)
+      /<command> reload - 重载配置(管理员)
+    aliases: [li]
+
+permissions:
+  largerinventory.player.opencontainer:
+    description: 允许玩家打开交接容器
+    default: true
+  largerinventory.player.info:
+    description: 允许玩家查看自己的背包信息
+    default: true
+  largerinventory.admin.forcereset:
+    description: 允许重置所有超出限制的玩家背包
+    default: op
+  largerinventory.admin.opencontainer:
+    description: 允许打开任意玩家的交接容器
+    default: op
+  largerinventory.admin.reload:
+    description: 允许重载配置
+    default: op
+  largerinventory.admin.info:
+    description: 允许查看任意玩家的背包信息
+    default: op
+  largerinventory.admin.*:
+    description: 所有管理员权限
+    default: op
+    children:
+      largerinventory.admin.forcereset: true
+      largerinventory.admin.opencontainer: true
+      largerinventory.admin.reload: true
+      largerinventory.admin.info: true

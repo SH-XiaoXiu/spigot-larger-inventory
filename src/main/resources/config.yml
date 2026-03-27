@@ -1,0 +1,21 @@
+# 按钮设置
+buttons:
+  # 位置范围: 9-35（快捷栏为0-8，不允许放置按钮）
+  prev-page-slot: 27
+  next-page-slot: 35
+
+  # 按钮外观
+  prev-material: "ARROW"
+  next-material: "ARROW"
+  prev-name: "&6◀ 上一页"
+  next-name: "&6下一页 ▶"
+
+# 分页限制
+limits:
+  # 0表示无限制
+  max-pages: 0
+
+# 数据保护
+data:
+  backup-retention-days: 7
+  auto-save-interval-seconds: 300
