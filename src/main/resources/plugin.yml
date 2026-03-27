@@ -1,0 +1,8 @@
+name: LargerInventory
+version: '1.0'
+main: cn.xiuxius.mc.LargerInventory
+api-version: '1.21'
+prefix: LargerBag
+authors: [ XiaoXiu ]
+description: 更大的背包
+website: www.xiuxius.cn
