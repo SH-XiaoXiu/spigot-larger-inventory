@@ -3,6 +3,8 @@ package cn.xiuxius.mc.largerinventory.inventory;
 import cn.xiuxius.mc.largerinventory.config.ConfigManager;
 import cn.xiuxius.mc.largerinventory.database.PlayerInventoryDAO;
 import cn.xiuxius.mc.largerinventory.database.model.PlayerMeta;
+import cn.xiuxius.mc.largerinventory.i18n.MessageKeys;
+import cn.xiuxius.mc.largerinventory.i18n.MessageManager;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -35,15 +37,17 @@ public class PageManager {
     private final JavaPlugin plugin;
     private final ConfigManager configManager;
     private final ButtonManager buttonManager;
+    private final MessageManager messageManager;
     private final PlayerInventoryDAO dao;
 
     private final Map<UUID, PlayerPageData> playerDataCache = new ConcurrentHashMap<>();
 
     public PageManager(JavaPlugin plugin, ConfigManager configManager,
-                       ButtonManager buttonManager, PlayerInventoryDAO dao) {
+                       ButtonManager buttonManager, MessageManager messageManager, PlayerInventoryDAO dao) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.buttonManager = buttonManager;
+        this.messageManager = messageManager;
         this.dao = dao;
     }
 
@@ -150,10 +154,13 @@ public class PageManager {
             loadItemsToInventory(player, items);
             updateButtons(player, currentPage, maxPage);
 
-            plugin.getLogger().info("玩家 " + player.getName() + " 数据已加载，当前页: "
-                    + (currentPage + 1) + "，已用页: " + (maxPage + 1));
+            plugin.getLogger().info(messageManager.getLog(MessageKeys.Log.PLAYER_DATA_LOADED,
+                    "player", player.getName(),
+                    "current", currentPage + 1,
+                    "max", maxPage + 1));
         } catch (SQLException e) {
-            plugin.getLogger().severe("加载玩家 " + player.getName() + " 数据失败: " + e.getMessage());
+            plugin.getLogger().severe(messageManager.getLog(MessageKeys.Log.PLAYER_DATA_LOAD_FAILED,
+                    "player", player.getName(), "error", e.getMessage()));
             PlayerPageData data = createPlayerData(uuid, 0, 0);
             playerDataCache.put(uuid, data);
             updateButtons(player, 0, 0);
@@ -245,7 +252,8 @@ public class PageManager {
                     updateButtons(player, targetPage, data.maxPage);
                 });
             } catch (SQLException e) {
-                plugin.getLogger().severe("加载页面失败 [" + uuid + " 页" + (targetPage + 1) + "]: " + e.getMessage());
+                plugin.getLogger().severe(messageManager.getLog(MessageKeys.Log.PAGE_LOAD_FAILED,
+                        "uuid", uuid, "page", targetPage + 1, "error", e.getMessage()));
                 plugin.getServer().getScheduler().runTask(plugin, () -> {
                     data.switching = false;
                     // 回退到之前的页码（加载失败）
@@ -302,7 +310,8 @@ public class PageManager {
                     dao.savePageItems(task.uuid, task.pageNum, task.items);
                     task.source.dirty = false; // 写入成功后清标记
                 } catch (SQLException e) {
-                    plugin.getLogger().warning("异步写入失败 [页" + (task.pageNum + 1) + "]: " + e.getMessage());
+                    plugin.getLogger().warning(messageManager.getLog(MessageKeys.Log.PAGE_WRITE_FAILED,
+                            "page", task.pageNum + 1, "error", e.getMessage()));
                 }
             }
             Set<UUID> done = new HashSet<>();
@@ -312,7 +321,8 @@ public class PageManager {
                     try {
                         dao.updatePlayerMeta(task.uuid, meta[0], meta[1]);
                     } catch (SQLException e) {
-                        plugin.getLogger().warning("更新元数据失败: " + e.getMessage());
+                        plugin.getLogger().warning(messageManager.getLog(MessageKeys.Log.PAGE_METADATA_UPDATE_FAILED,
+                                "error", e.getMessage()));
                     }
                 }
             }
@@ -364,7 +374,8 @@ public class PageManager {
             }
             dao.updatePlayerMeta(uuid, data.currentPage, data.maxPage);
         } catch (SQLException e) {
-            plugin.getLogger().severe("同步保存玩家数据失败 [" + uuid + "]: " + e.getMessage());
+            plugin.getLogger().severe(messageManager.getLog(MessageKeys.Log.PLAYER_DATA_SAVE_FAILED,
+                    "uuid", uuid, "error", e.getMessage()));
         }
     }
 
@@ -376,7 +387,8 @@ public class PageManager {
             try {
                 dao.savePageItems(uuid, pageNum, items);
             } catch (SQLException e) {
-                plugin.getLogger().warning("LRU 驱逐写入失败 [页" + (pageNum + 1) + "]: " + e.getMessage());
+                plugin.getLogger().warning(messageManager.getLog(MessageKeys.Log.PAGE_LRU_EVICT_FAILED,
+                        "page", pageNum + 1, "error", e.getMessage()));
             }
         });
     }
@@ -411,7 +423,8 @@ public class PageManager {
                         updateButtons(player, data.currentPage, data.maxPage);
                     });
                 } catch (SQLException e) {
-                    plugin.getLogger().severe("重载页面失败 [" + uuid + "]: " + e.getMessage());
+                    plugin.getLogger().severe(messageManager.getLog(MessageKeys.Log.PAGE_RELOAD_FAILED,
+                            "uuid", uuid, "error", e.getMessage()));
                     plugin.getServer().getScheduler().runTask(plugin, () -> data.switching = false);
                 }
             });
@@ -441,7 +454,9 @@ public class PageManager {
                 buttonManager.createNextButton(currentPage, maxPage, canNext));
     }
 
-    /** 当有效最大页数 > 1 时才显示并保护按钮槽位 */
+    /**
+     * 当有效最大页数 > 1 时才显示并保护按钮槽位
+     */
     public boolean isButtonsEnabled() {
         return getEffectiveMaxPages() > 1;
     }
@@ -502,6 +517,7 @@ public class PageManager {
 
     /**
      * 处理按钮槽位冲突。
+     *
      * @return 无法放入背包也无法存入新页的物品（调用方应送交接容器）
      */
     public List<ItemStack> handleButtonSlotConflict(Player player) {

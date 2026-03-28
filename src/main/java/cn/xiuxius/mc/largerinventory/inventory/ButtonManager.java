@@ -1,7 +1,8 @@
 package cn.xiuxius.mc.largerinventory.inventory;
 
 import cn.xiuxius.mc.largerinventory.config.ConfigManager;
-import org.bukkit.ChatColor;
+import cn.xiuxius.mc.largerinventory.i18n.MessageKeys;
+import cn.xiuxius.mc.largerinventory.i18n.MessageManager;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
@@ -24,11 +25,13 @@ public class ButtonManager {
     public static final String BUTTON_NEXT = "next_page";
     private final JavaPlugin plugin;
     private final ConfigManager configManager;
+    private final MessageManager messageManager;
     private final NamespacedKey buttonKey;
 
-    public ButtonManager(JavaPlugin plugin, ConfigManager configManager) {
+    public ButtonManager(JavaPlugin plugin, ConfigManager configManager, MessageManager messageManager) {
         this.plugin = plugin;
         this.configManager = configManager;
+        this.messageManager = messageManager;
         this.buttonKey = new NamespacedKey(plugin, "largerinventory_button");
     }
 
@@ -45,19 +48,21 @@ public class ButtonManager {
         ItemMeta meta = button.getItemMeta();
         if (meta != null) {
             // 设置名称
-            String name = configManager.getPrevButtonName();
-            if (!canPrev) {
-                name = ChatColor.GRAY + "已到第一页";
+            String name;
+            if (canPrev) {
+                name = messageManager.get(MessageKeys.Button.PREV_NAME);
+            } else {
+                name = messageManager.get(MessageKeys.Button.PREV_FIRST_PAGE);
             }
             meta.setDisplayName(name);
 
             // 设置描述
             List<String> lore = new ArrayList<>();
-            lore.add(ChatColor.YELLOW + "当前页: " + (currentPage + 1));
+            lore.add(messageManager.get(MessageKeys.Button.PREV_LORE_CURRENT, "page", currentPage + 1));
             if (canPrev) {
-                lore.add(ChatColor.GREEN + "点击翻到上一页");
+                lore.add(messageManager.get(MessageKeys.Button.PREV_LORE_CLICK));
             } else {
-                lore.add(ChatColor.RED + "无法继续向前");
+                lore.add(messageManager.get(MessageKeys.Button.PREV_LORE_CANNOT));
             }
             meta.setLore(lore);
 
@@ -84,20 +89,22 @@ public class ButtonManager {
         ItemMeta meta = button.getItemMeta();
         if (meta != null) {
             // 设置名称
-            String name = configManager.getNextButtonName();
-            if (!canNext) {
-                name = ChatColor.GRAY + "已到最后一页";
+            String name;
+            if (canNext) {
+                name = messageManager.get(MessageKeys.Button.NEXT_NAME);
+            } else {
+                name = messageManager.get(MessageKeys.Button.NEXT_LAST_PAGE);
             }
             meta.setDisplayName(name);
 
             // 设置描述
             List<String> lore = new ArrayList<>();
-            lore.add(ChatColor.YELLOW + "当前页: " + (currentPage + 1));
-            lore.add(ChatColor.YELLOW + "最大页: " + (maxPage + 1));
+            lore.add(messageManager.get(MessageKeys.Button.NEXT_LORE_CURRENT, "page", currentPage + 1));
+            lore.add(messageManager.get(MessageKeys.Button.NEXT_LORE_MAX, "page", maxPage + 1));
             if (canNext) {
-                lore.add(ChatColor.GREEN + "点击翻到下一页");
+                lore.add(messageManager.get(MessageKeys.Button.NEXT_LORE_CLICK));
             } else {
-                lore.add(ChatColor.RED + "无法继续向后");
+                lore.add(messageManager.get(MessageKeys.Button.NEXT_LORE_CANNOT));
             }
             meta.setLore(lore);
 

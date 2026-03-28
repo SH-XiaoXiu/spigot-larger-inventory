@@ -1,8 +1,9 @@
 package cn.xiuxius.mc.largerinventory.listener;
 
 import cn.xiuxius.mc.largerinventory.handover.HandoverContainerManager;
+import cn.xiuxius.mc.largerinventory.i18n.MessageKeys;
+import cn.xiuxius.mc.largerinventory.i18n.MessageManager;
 import cn.xiuxius.mc.largerinventory.inventory.PageManager;
-import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -20,10 +21,12 @@ public class PlayerJoinListener implements Listener {
 
     private final PageManager pageManager;
     private final HandoverContainerManager handoverManager;
+    private final MessageManager messageManager;
 
-    public PlayerJoinListener(PageManager pageManager, HandoverContainerManager handoverManager) {
+    public PlayerJoinListener(PageManager pageManager, HandoverContainerManager handoverManager, MessageManager messageManager) {
         this.pageManager = pageManager;
         this.handoverManager = handoverManager;
+        this.messageManager = messageManager;
     }
 
     @EventHandler(priority = EventPriority.NORMAL)
@@ -40,8 +43,8 @@ public class PlayerJoinListener implements Listener {
         // 检查是否有交接容器待领取
         if (handoverManager.hasContainer(player.getUniqueId())) {
             int count = handoverManager.getContainerItemCount(player.getUniqueId());
-            player.sendMessage(ChatColor.GOLD + "你有 " + count + " 个物品待领取！");
-            player.sendMessage(ChatColor.YELLOW + "使用 /li opencontainer 打开交接容器取回物品。");
+            player.sendMessage(messageManager.get(MessageKeys.Player.ITEMS_PENDING, "count", count));
+            player.sendMessage(messageManager.get(MessageKeys.Player.RETRIEVE_HINT));
         }
     }
 }

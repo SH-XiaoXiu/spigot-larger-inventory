@@ -4,10 +4,11 @@ import cn.xiuxius.mc.largerinventory.command.AdminCommand;
 import cn.xiuxius.mc.largerinventory.config.ConfigManager;
 import cn.xiuxius.mc.largerinventory.database.DatabaseManager;
 import cn.xiuxius.mc.largerinventory.database.PlayerInventoryDAO;
-import cn.xiuxius.mc.largerinventory.listener.HandoverContainerListener;
 import cn.xiuxius.mc.largerinventory.handover.HandoverContainerManager;
-import cn.xiuxius.mc.largerinventory.inventory.BypassManager;
+import cn.xiuxius.mc.largerinventory.i18n.MessageKeys;
+import cn.xiuxius.mc.largerinventory.i18n.MessageManager;
 import cn.xiuxius.mc.largerinventory.inventory.ButtonManager;
+import cn.xiuxius.mc.largerinventory.inventory.BypassManager;
 import cn.xiuxius.mc.largerinventory.inventory.PageManager;
 import cn.xiuxius.mc.largerinventory.listener.*;
 import org.bukkit.Bukkit;
@@ -19,6 +20,7 @@ public final class LargerInventory extends JavaPlugin {
 
     // 组件
     private ConfigManager configManager;
+    private MessageManager messageManager;
     private DatabaseManager databaseManager;
     private PlayerInventoryDAO playerInventoryDAO;
     private ButtonManager buttonManager;
@@ -37,26 +39,31 @@ public final class LargerInventory extends JavaPlugin {
 
         // 验证配置
         if (!configManager.validateButtonSlots()) {
-            getLogger().severe("配置验证失败，插件将禁用！");
+            getLogger().severe("Configuration validation failed, Plugin disabled.");
+            getLogger().severe("(配置验证失败，插件已禁用)");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
 
+        // 初始化消息管理器
+        messageManager = new MessageManager(this, configManager.getLanguage());
+        messageManager.load();
+
         // 初始化数据库
-        databaseManager = new DatabaseManager(this);
+        databaseManager = new DatabaseManager(this, messageManager);
         databaseManager.init();
 
         // 初始化数据访问层
         playerInventoryDAO = new PlayerInventoryDAO(databaseManager);
 
         // 初始化按钮管理器
-        buttonManager = new ButtonManager(this, configManager);
+        buttonManager = new ButtonManager(this, configManager, messageManager);
 
         // 初始化分页管理器
-        pageManager = new PageManager(this, configManager, buttonManager, playerInventoryDAO);
+        pageManager = new PageManager(this, configManager, buttonManager, messageManager, playerInventoryDAO);
 
         // 初始化交接容器管理器
-        handoverContainerManager = new HandoverContainerManager(this, playerInventoryDAO);
+        handoverContainerManager = new HandoverContainerManager(this, messageManager, playerInventoryDAO);
 
         // 初始化 bypass 管理器
         bypassManager = new BypassManager();
@@ -76,9 +83,12 @@ public final class LargerInventory extends JavaPlugin {
             pageManager.handleButtonSlotConflict(player);
         }
 
-        getLogger().info("LargerInventory 插件已启用！");
-        getLogger().info("按钮位置: 上一页=" + configManager.getPrevButtonSlot() + ", 下一页=" + configManager.getNextButtonSlot());
-        getLogger().info("最大页数: " + (configManager.getMaxPages() <= 0 ? "无限制" : configManager.getMaxPages()));
+        getLogger().info(messageManager.getLog(MessageKeys.Log.PLUGIN_ENABLED));
+        getLogger().info(messageManager.getLog(MessageKeys.Log.BUTTON_POSITIONS,
+                "prev", configManager.getPrevButtonSlot(),
+                "next", configManager.getNextButtonSlot()));
+        String maxPagesMsg = configManager.getMaxPages() <= 0 ? String.valueOf(PageManager.MAX_PAGES_HARD_LIMIT) : String.valueOf(configManager.getMaxPages());
+        getLogger().info(messageManager.getLog(MessageKeys.Log.MAX_PAGES, "limit", maxPagesMsg));
     }
 
     @Override
@@ -95,7 +105,7 @@ public final class LargerInventory extends JavaPlugin {
         // 关闭数据库
         databaseManager.close();
 
-        getLogger().info("LargerInventory 插件已禁用！");
+        getLogger().info(messageManager.getLog(MessageKeys.Log.PLUGIN_DISABLED));
     }
 
     /**
@@ -113,7 +123,7 @@ public final class LargerInventory extends JavaPlugin {
 
         // 玩家加入/退出监听器
         getServer().getPluginManager().registerEvents(
-                new PlayerJoinListener(pageManager, handoverContainerManager), this);
+                new PlayerJoinListener(pageManager, handoverContainerManager, messageManager), this);
         getServer().getPluginManager().registerEvents(
                 new PlayerQuitListener(pageManager), this);
 
@@ -123,14 +133,14 @@ public final class LargerInventory extends JavaPlugin {
 
         // 游戏模式切换监听器（离开创造模式时修复按钮槽）
         getServer().getPluginManager().registerEvents(
-                new PlayerGameModeChangeListener(this, pageManager, handoverContainerManager, bypassManager), this);
+                new PlayerGameModeChangeListener(this, pageManager, handoverContainerManager, bypassManager, messageManager), this);
     }
 
     /**
      * 注册命令
      */
     private void registerCommands() {
-        AdminCommand adminCommand = new AdminCommand(this, configManager, playerInventoryDAO, pageManager, handoverContainerManager, bypassManager);
+        AdminCommand adminCommand = new AdminCommand(this, configManager, messageManager, playerInventoryDAO, pageManager, handoverContainerManager, bypassManager);
         getCommand("largerinventory").setExecutor(adminCommand);
         getCommand("largerinventory").setTabCompleter(adminCommand);
     }
@@ -144,21 +154,11 @@ public final class LargerInventory extends JavaPlugin {
         // 定时刷脏任务（主线程快照 + 内部异步写 DB，实现写入聚合）
         autoSaveTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
             pageManager.flushAllDirtyPages();
-            getLogger().fine("脏页刷写完成");
         }, autoSaveInterval * 20L, autoSaveInterval * 20L);
 
-        getLogger().info("定时任务已启动：自动保存间隔 " + autoSaveInterval + " 秒");
+        getLogger().info(messageManager.getLog(MessageKeys.Log.SCHEDULED_TASK_STARTED, "interval", autoSaveInterval));
     }
 
-    /**
-     * 重载配置
-     */
-    public void reloadPluginConfig() {
-        configManager.load();
-        if (!configManager.validateButtonSlots()) {
-            getLogger().severe("配置验证失败！");
-        }
-    }
 
     // Getters
     public ConfigManager getConfigManager() {
@@ -183,5 +183,9 @@ public final class LargerInventory extends JavaPlugin {
 
     public HandoverContainerManager getHandoverContainerManager() {
         return handoverContainerManager;
+    }
+
+    public MessageManager getMessageManager() {
+        return messageManager;
     }
 }

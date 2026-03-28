@@ -1,5 +1,7 @@
 package cn.xiuxius.mc.largerinventory.database;
 
+import cn.xiuxius.mc.largerinventory.i18n.MessageKeys;
+import cn.xiuxius.mc.largerinventory.i18n.MessageManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.File;
@@ -17,10 +19,12 @@ public class DatabaseManager {
     public static final int DATABASE_VERSION = 1;
 
     private final JavaPlugin plugin;
+    private final MessageManager messageManager;
     private final String dbPath;
 
-    public DatabaseManager(JavaPlugin plugin) {
+    public DatabaseManager(JavaPlugin plugin, MessageManager messageManager) {
         this.plugin = plugin;
+        this.messageManager = messageManager;
         this.dbPath = plugin.getDataFolder() + File.separator + "data.db";
     }
 
@@ -46,11 +50,12 @@ public class DatabaseManager {
                 createTables(conn);
             }
 
-            plugin.getLogger().info("数据库初始化完成: " + dbPath + " (版本: " + DATABASE_VERSION + ")");
+            plugin.getLogger().info(messageManager.getLog(MessageKeys.Log.DB_INIT_COMPLETE,
+                    "path", dbPath, "version", DATABASE_VERSION));
         } catch (ClassNotFoundException e) {
-            plugin.getLogger().log(Level.SEVERE, "SQLite 驱动未找到", e);
+            plugin.getLogger().log(Level.SEVERE, messageManager.getLog(MessageKeys.Log.DB_DRIVER_NOT_FOUND), e);
         } catch (SQLException e) {
-            plugin.getLogger().log(Level.SEVERE, "数据库初始化失败", e);
+            plugin.getLogger().log(Level.SEVERE, messageManager.getLog(MessageKeys.Log.DB_INIT_FAILED), e);
         }
     }
 
@@ -64,7 +69,7 @@ public class DatabaseManager {
 
     /** 无持久连接，此方法仅做记录。 */
     public void close() {
-        plugin.getLogger().info("数据库连接管理器已关闭");
+        plugin.getLogger().info(messageManager.getLog(MessageKeys.Log.DB_CONNECTION_CLOSED));
     }
 
     // ==================== 私有方法 ====================
@@ -115,16 +120,17 @@ public class DatabaseManager {
     }
 
     private void migrate(Connection conn, int fromVersion) throws SQLException {
-        plugin.getLogger().info("开始数据库迁移: v" + fromVersion + " → v" + DATABASE_VERSION);
+        plugin.getLogger().info(messageManager.getLog(MessageKeys.Log.DB_MIGRATION_START,
+                "from", fromVersion, "to", DATABASE_VERSION));
         conn.setAutoCommit(false);
         try {
             // if (fromVersion < 2) { migrateToV2(conn); }
             setDatabaseVersion(conn, DATABASE_VERSION);
             conn.commit();
-            plugin.getLogger().info("数据库迁移完成");
+            plugin.getLogger().info(messageManager.getLog(MessageKeys.Log.DB_MIGRATION_COMPLETE));
         } catch (SQLException e) {
             conn.rollback();
-            plugin.getLogger().log(Level.SEVERE, "数据库迁移失败，已回滚", e);
+            plugin.getLogger().log(Level.SEVERE, messageManager.getLog(MessageKeys.Log.DB_MIGRATION_FAILED), e);
             throw e;
         } finally {
             conn.setAutoCommit(true);

@@ -1,9 +1,10 @@
 package cn.xiuxius.mc.largerinventory.listener;
 
 import cn.xiuxius.mc.largerinventory.handover.HandoverContainerManager;
+import cn.xiuxius.mc.largerinventory.i18n.MessageKeys;
+import cn.xiuxius.mc.largerinventory.i18n.MessageManager;
 import cn.xiuxius.mc.largerinventory.inventory.BypassManager;
 import cn.xiuxius.mc.largerinventory.inventory.PageManager;
-import org.bukkit.ChatColor;
 import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -29,14 +30,16 @@ public class PlayerGameModeChangeListener implements Listener {
     private final PageManager pageManager;
     private final HandoverContainerManager handoverManager;
     private final BypassManager bypassManager;
+    private final MessageManager messageManager;
 
     public PlayerGameModeChangeListener(JavaPlugin plugin, PageManager pageManager,
                                         HandoverContainerManager handoverManager,
-                                        BypassManager bypassManager) {
+                                        BypassManager bypassManager, MessageManager messageManager) {
         this.plugin = plugin;
         this.pageManager = pageManager;
         this.handoverManager = handoverManager;
         this.bypassManager = bypassManager;
+        this.messageManager = messageManager;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -55,9 +58,8 @@ public class PlayerGameModeChangeListener implements Listener {
             List<ItemStack> unplaceable = pageManager.handleButtonSlotConflict(player);
             if (!unplaceable.isEmpty()) {
                 handoverManager.createContainer(player, unplaceable);
-                player.sendMessage(ChatColor.GOLD + "离开创造模式：" + unplaceable.size()
-                        + " 个物品无法放入背包，已存入交接容器。");
-                player.sendMessage(ChatColor.YELLOW + "使用 /li opencontainer 取回物品。");
+                player.sendMessage(messageManager.get(MessageKeys.Player.CREATIVE_OVERFLOW, "count", unplaceable.size()));
+                player.sendMessage(messageManager.get(MessageKeys.Player.RETRIEVE_HINT));
             }
             // 恢复翻页按钮
             pageManager.restoreButtons(player);

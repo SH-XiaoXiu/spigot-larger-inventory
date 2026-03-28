@@ -1,8 +1,9 @@
 package cn.xiuxius.mc.largerinventory.handover;
 
 import cn.xiuxius.mc.largerinventory.database.PlayerInventoryDAO;
+import cn.xiuxius.mc.largerinventory.i18n.MessageKeys;
+import cn.xiuxius.mc.largerinventory.i18n.MessageManager;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.Inventory;
@@ -32,6 +33,7 @@ public class HandoverContainerManager {
     public static final int NEXT_BUTTON_SLOT = 53;
 
     private final JavaPlugin plugin;
+    private final MessageManager messageManager;
     private final PlayerInventoryDAO dao;
     // 玩家打开的交接容器缓存
     private final Map<UUID, Inventory> openContainers;
@@ -40,8 +42,9 @@ public class HandoverContainerManager {
     // 每个玩家当前在交接容器的第几页（0-indexed）
     private final Map<UUID, Integer> playerCurrentPage;
 
-    public HandoverContainerManager(JavaPlugin plugin, PlayerInventoryDAO dao) {
+    public HandoverContainerManager(JavaPlugin plugin, MessageManager messageManager, PlayerInventoryDAO dao) {
         this.plugin = plugin;
+        this.messageManager = messageManager;
         this.dao = dao;
         this.openContainers = new HashMap<>();
         this.slotMapping = new HashMap<>();
@@ -70,10 +73,10 @@ public class HandoverContainerManager {
 
         try {
             dao.createHandoverItems(uuid, items);
-            plugin.getLogger().info("为玩家 " + playerName + " 创建交接容器，共 " + items.size() + " 个物品");
+            plugin.getLogger().info(messageManager.getLog(MessageKeys.Log.HANDOVER_CREATED, "player", playerName, "count", items.size()));
             return true;
         } catch (SQLException e) {
-            plugin.getLogger().severe("创建交接容器失败: " + e.getMessage());
+            plugin.getLogger().severe(messageManager.getLog(MessageKeys.Log.HANDOVER_CREATE_FAILED, "error", e.getMessage()));
             return false;
         }
     }
@@ -99,7 +102,7 @@ public class HandoverContainerManager {
         UUID uuid = player.getUniqueId();
         try {
             if (dao.isHandoverContainerEmpty(uuid)) {
-                player.sendMessage(ChatColor.YELLOW + "你没有待领取的物品。");
+                player.sendMessage(messageManager.get(MessageKeys.Handover.NO_ITEMS));
                 return false;
             }
 
@@ -112,7 +115,7 @@ public class HandoverContainerManager {
             page = Math.max(0, Math.min(page, totalPages - 1));
 
             // 创建容器，标题显示当前页/总页数
-            String title = ChatColor.GOLD + "物品交接容器 [" + (page + 1) + "/" + totalPages + "]";
+            String title = messageManager.get(MessageKeys.Handover.CONTAINER_TITLE, "page", page + 1, "total", totalPages);
             Inventory container = Bukkit.createInventory(null, 54, title);
 
             // 填充物品区（槽位 0-44），建立映射表
@@ -131,7 +134,7 @@ public class HandoverContainerManager {
             // 填充导航行（槽位 45-53）
             ItemStack filler = new ItemStack(Material.GRAY_STAINED_GLASS_PANE);
             ItemMeta fillerMeta = filler.getItemMeta();
-            fillerMeta.setDisplayName(ChatColor.GRAY + "第 " + (page + 1) + " 页 / 共 " + totalPages + " 页");
+            fillerMeta.setDisplayName(messageManager.get(MessageKeys.Handover.NAV_PAGE_INFO, "page", page + 1, "total", totalPages));
             filler.setItemMeta(fillerMeta);
             for (int s = 45; s <= 53; s++) {
                 container.setItem(s, filler);
@@ -141,7 +144,7 @@ public class HandoverContainerManager {
             if (page > 0) {
                 ItemStack prev = new ItemStack(Material.ARROW);
                 ItemMeta prevMeta = prev.getItemMeta();
-                prevMeta.setDisplayName(ChatColor.YELLOW + "◀ 上一页");
+                prevMeta.setDisplayName(messageManager.get(MessageKeys.Handover.NAV_PREV_NAME));
                 prev.setItemMeta(prevMeta);
                 container.setItem(PREV_BUTTON_SLOT, prev);
             }
@@ -150,7 +153,7 @@ public class HandoverContainerManager {
             if (page < totalPages - 1) {
                 ItemStack next = new ItemStack(Material.ARROW);
                 ItemMeta nextMeta = next.getItemMeta();
-                nextMeta.setDisplayName(ChatColor.YELLOW + "下一页 ▶");
+                nextMeta.setDisplayName(messageManager.get(MessageKeys.Handover.NAV_NEXT_NAME));
                 next.setItemMeta(nextMeta);
                 container.setItem(NEXT_BUTTON_SLOT, next);
             }
@@ -159,13 +162,13 @@ public class HandoverContainerManager {
             player.openInventory(container);
 
             if (page == 0) {
-                player.sendMessage(ChatColor.GREEN + "已打开交接容器，请取出你的物品。");
-                player.sendMessage(ChatColor.YELLOW + "注意：只能取出物品，不能放入物品。");
+                player.sendMessage(messageManager.get(MessageKeys.Handover.OPENED));
+                player.sendMessage(messageManager.get(MessageKeys.Handover.NOTE_READONLY));
             }
             return true;
         } catch (SQLException e) {
-            plugin.getLogger().severe("打开交接容器失败: " + e.getMessage());
-            player.sendMessage(ChatColor.RED + "打开交接容器失败，请联系管理员。");
+            plugin.getLogger().severe(messageManager.getLog(MessageKeys.Log.HANDOVER_OPEN_FAILED, "error", e.getMessage()));
+            player.sendMessage(messageManager.get(MessageKeys.Handover.OPEN_FAILED));
             return false;
         }
     }
@@ -216,9 +219,9 @@ public class HandoverContainerManager {
             if (dbSlot == null) return;
             dao.removeHandoverItem(uuid, dbSlot);
             playerSlotMap.remove(rawSlot);
-            plugin.getLogger().fine("玩家 " + player.getName() + " 从交接容器取出了槽位 " + rawSlot + "（DB槽位：" + dbSlot + "）的物品");
+            plugin.getLogger().fine(messageManager.getLog(MessageKeys.Log.HANDOVER_ITEM_TAKEN, "player", player.getName(), "slot", rawSlot));
         } catch (SQLException e) {
-            plugin.getLogger().warning("更新交接容器失败: " + e.getMessage());
+            plugin.getLogger().warning(messageManager.getLog(MessageKeys.Log.HANDOVER_UPDATE_FAILED, "error", e.getMessage()));
         }
     }
 
@@ -248,10 +251,10 @@ public class HandoverContainerManager {
             openContainers.remove(uuid);
             slotMapping.remove(uuid);
             playerCurrentPage.remove(uuid);
-            plugin.getLogger().info("玩家 " + player.getName() + " 的交接容器已销毁");
-            player.sendMessage(ChatColor.GREEN + "所有物品已领取完毕，交接容器已销毁。");
+            plugin.getLogger().info(messageManager.getLog(MessageKeys.Log.HANDOVER_DESTROYED, "player", player.getName()));
+            player.sendMessage(messageManager.get(MessageKeys.Handover.ALL_RETRIEVED));
         } catch (SQLException e) {
-            plugin.getLogger().severe("销毁交接容器失败: " + e.getMessage());
+            plugin.getLogger().severe(messageManager.getLog(MessageKeys.Log.HANDOVER_UPDATE_FAILED, "error", e.getMessage()));
         }
     }
 
@@ -270,10 +273,10 @@ public class HandoverContainerManager {
             if (dao.isHandoverContainerEmpty(uuid)) {
                 dao.destroyHandoverContainer(uuid);
                 playerCurrentPage.remove(uuid);
-                plugin.getLogger().info("玩家 " + player.getName() + " 的交接容器已自动销毁（已空）");
+                plugin.getLogger().info(messageManager.getLog(MessageKeys.Log.HANDOVER_AUTO_DESTROYED, "player", player.getName()));
             }
         } catch (SQLException e) {
-            plugin.getLogger().warning("检查交接容器状态失败: " + e.getMessage());
+            plugin.getLogger().warning(messageManager.getLog(MessageKeys.Log.HANDOVER_STATUS_CHECK_FAILED, "error", e.getMessage()));
         }
     }
 

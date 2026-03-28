@@ -4,11 +4,12 @@ import cn.xiuxius.mc.largerinventory.config.ConfigManager;
 import cn.xiuxius.mc.largerinventory.database.PlayerInventoryDAO;
 import cn.xiuxius.mc.largerinventory.database.model.PlayerMeta;
 import cn.xiuxius.mc.largerinventory.handover.HandoverContainerManager;
+import cn.xiuxius.mc.largerinventory.i18n.MessageKeys;
+import cn.xiuxius.mc.largerinventory.i18n.MessageManager;
 import cn.xiuxius.mc.largerinventory.inventory.BypassManager;
 import cn.xiuxius.mc.largerinventory.inventory.PageManager;
-import org.bukkit.GameMode;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
+import org.bukkit.GameMode;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -30,16 +31,18 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
 
     private final JavaPlugin plugin;
     private final ConfigManager configManager;
+    private final MessageManager messageManager;
     private final PlayerInventoryDAO dao;
     private final PageManager pageManager;
     private final HandoverContainerManager handoverManager;
     private final BypassManager bypassManager;
 
-    public AdminCommand(JavaPlugin plugin, ConfigManager configManager, PlayerInventoryDAO dao,
-                        PageManager pageManager, HandoverContainerManager handoverManager,
-                        BypassManager bypassManager) {
+    public AdminCommand(JavaPlugin plugin, ConfigManager configManager, MessageManager messageManager,
+                        PlayerInventoryDAO dao, PageManager pageManager,
+                        HandoverContainerManager handoverManager, BypassManager bypassManager) {
         this.plugin = plugin;
         this.configManager = configManager;
+        this.messageManager = messageManager;
         this.dao = dao;
         this.pageManager = pageManager;
         this.handoverManager = handoverManager;
@@ -74,23 +77,23 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
      */
     private boolean handleForceReset(CommandSender sender) {
         if (!sender.hasPermission("largerinventory.admin.forcereset")) {
-            sender.sendMessage(ChatColor.RED + "你没有权限执行此命令。");
+            sender.sendMessage(messageManager.get(MessageKeys.Command.NO_PERMISSION));
             return true;
         }
 
         // 检查是否有在线玩家
         if (Bukkit.getOnlinePlayers().size() > 1 || (Bukkit.getOnlinePlayers().size() == 1 && !(sender instanceof Player))) {
-            sender.sendMessage(ChatColor.RED + "服务器上还有其他在线玩家，请先让所有玩家下线后再执行此命令。");
+            sender.sendMessage(messageManager.get(MessageKeys.Command.FORCERESET_PLAYERS_ONLINE));
             return true;
         }
 
         int configMaxPages = configManager.getMaxPages();
         if (configMaxPages <= 0) {
-            sender.sendMessage(ChatColor.YELLOW + "当前无页数限制，无需重置。");
+            sender.sendMessage(messageManager.get(MessageKeys.Command.FORCERESET_NO_LIMIT));
             return true;
         }
 
-        sender.sendMessage(ChatColor.YELLOW + "开始重置所有超出限制的玩家背包...");
+        sender.sendMessage(messageManager.get(MessageKeys.Command.FORCERESET_START));
 
         // 异步执行重置（全部走数据库）
         Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
@@ -130,11 +133,11 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
             int finalResetCount = resetCount;
             int finalTotalOverflowItems = totalOverflowItems;
             Bukkit.getScheduler().runTask(plugin, () -> {
-                sender.sendMessage(ChatColor.GREEN + "重置完成！");
-                sender.sendMessage(ChatColor.YELLOW + "处理玩家数: " + finalResetCount);
-                sender.sendMessage(ChatColor.YELLOW + "超出物品总数: " + finalTotalOverflowItems);
+                sender.sendMessage(messageManager.get(MessageKeys.Command.FORCERESET_COMPLETE));
+                sender.sendMessage(messageManager.get(MessageKeys.Command.FORCERESET_COUNT, "count", finalResetCount));
+                sender.sendMessage(messageManager.get(MessageKeys.Command.FORCERESET_OVERFLOW, "count", finalTotalOverflowItems));
                 if (finalTotalOverflowItems > 0) {
-                    sender.sendMessage(ChatColor.YELLOW + "玩家可使用 /li opencontainer 取回超出物品。");
+                    sender.sendMessage(messageManager.get(MessageKeys.Command.FORCERESET_RETRIEVE_HINT));
                 }
             });
         });
@@ -216,7 +219,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
             handoverManager.createContainer(uuid, playerName, overflowItems);
         }
 
-        plugin.getLogger().info("已重置玩家 " + playerName + " 的背包");
+        plugin.getLogger().info(messageManager.getLog(MessageKeys.Log.PLAYER_INVENTORY_RESET, "player", playerName));
         return overflowItems.size();
     }
 
@@ -225,12 +228,12 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
      */
     private boolean handleOpenContainer(CommandSender sender, String[] args) {
         if (!sender.hasPermission("largerinventory.admin.opencontainer")) {
-            sender.sendMessage(ChatColor.RED + "你没有权限执行此命令。");
+            sender.sendMessage(messageManager.get(MessageKeys.Command.NO_PERMISSION));
             return true;
         }
 
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(ChatColor.RED + "此命令只能由玩家执行。");
+            sender.sendMessage(messageManager.get(MessageKeys.Command.PLAYER_ONLY));
             return true;
         }
 
@@ -238,7 +241,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         if (args.length >= 2) {
             target = Bukkit.getPlayer(args[1]);
             if (target == null) {
-                sender.sendMessage(ChatColor.RED + "玩家 " + args[1] + " 不在线。");
+                sender.sendMessage(messageManager.get(MessageKeys.Command.OPENCONTAINER_PLAYER_NOT_ONLINE, "player", args[1]));
                 return true;
             }
         } else {
@@ -246,7 +249,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         }
 
         if (!handoverManager.hasContainer(target.getUniqueId())) {
-            sender.sendMessage(ChatColor.YELLOW + "玩家 " + target.getName() + " 没有待领取的物品。");
+            sender.sendMessage(messageManager.get(MessageKeys.Command.OPENCONTAINER_NO_ITEMS, "player", target.getName()));
             return true;
         }
 
@@ -259,17 +262,21 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
      */
     private boolean handleReload(CommandSender sender) {
         if (!sender.hasPermission("largerinventory.admin.reload")) {
-            sender.sendMessage(ChatColor.RED + "你没有权限执行此命令。");
+            sender.sendMessage(messageManager.get(MessageKeys.Command.NO_PERMISSION));
             return true;
         }
 
         configManager.load();
         if (!configManager.validateButtonSlots()) {
-            sender.sendMessage(ChatColor.RED + "配置验证失败，请检查按钮位置设置。");
+            sender.sendMessage(messageManager.get(MessageKeys.Command.RELOAD_VALIDATION_FAILED));
             return true;
         }
 
-        sender.sendMessage(ChatColor.GREEN + "配置已重载。");
+        // 重载语言文件（支持语言切换）
+        messageManager.setLocale(configManager.getLanguage());
+        messageManager.reload();
+
+        sender.sendMessage(messageManager.get(MessageKeys.Command.RELOAD_SUCCESS));
         return true;
     }
 
@@ -278,15 +285,15 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
      */
     private boolean handleBypass(CommandSender sender) {
         if (!(sender instanceof Player player)) {
-            sender.sendMessage(ChatColor.RED + "此命令只能由玩家执行。");
+            sender.sendMessage(messageManager.get(MessageKeys.Command.PLAYER_ONLY));
             return true;
         }
         if (!player.hasPermission("largerinventory.admin.bypass")) {
-            sender.sendMessage(ChatColor.RED + "你没有权限执行此命令。");
+            sender.sendMessage(messageManager.get(MessageKeys.Command.NO_PERMISSION));
             return true;
         }
         if (player.getGameMode() != GameMode.CREATIVE) {
-            sender.sendMessage(ChatColor.RED + "bypass 模式只能在创造模式下使用。");
+            sender.sendMessage(messageManager.get(MessageKeys.Command.BYPASS_CREATIVE_ONLY));
             return true;
         }
 
@@ -294,15 +301,15 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         if (bypassManager.isInBypass(uuid)) {
             boolean ok = bypassManager.exitBypass(player, pageManager, configManager);
             if (!ok) {
-                player.sendMessage(ChatColor.RED + "按钮槽内有物品，请先将其移走再关闭 bypass 模式。");
+                player.sendMessage(messageManager.get(MessageKeys.Command.BYPASS_SLOT_NOT_EMPTY));
             } else {
-                player.sendMessage(ChatColor.GREEN + "bypass 模式已关闭，翻页按钮已恢复。");
+                player.sendMessage(messageManager.get(MessageKeys.Command.BYPASS_DISABLED));
             }
         } else {
             bypassManager.enterBypass(player, configManager);
-            player.sendMessage(ChatColor.GOLD + "bypass 模式已开启，按钮槽拦截已解除。");
-            player.sendMessage(ChatColor.YELLOW + "当前背包索引不变，所有编辑均针对当前页。");
-            player.sendMessage(ChatColor.YELLOW + "再次输入 /li bypass 可关闭（需先清空按钮槽）。");
+            player.sendMessage(messageManager.get(MessageKeys.Command.BYPASS_ENABLED));
+            player.sendMessage(messageManager.get(MessageKeys.Command.BYPASS_ENABLED_HINT_1));
+            player.sendMessage(messageManager.get(MessageKeys.Command.BYPASS_ENABLED_HINT_2));
         }
         return true;
     }
@@ -312,7 +319,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
      */
     private boolean handleInfo(CommandSender sender, String[] args) {
         if (!sender.hasPermission("largerinventory.admin.info")) {
-            sender.sendMessage(ChatColor.RED + "你没有权限执行此命令。");
+            sender.sendMessage(messageManager.get(MessageKeys.Command.NO_PERMISSION));
             return true;
         }
 
@@ -330,13 +337,13 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
                 try {
                     PlayerMeta meta = dao.getPlayerMetaByName(args[1]);
                     if (meta == null) {
-                        sender.sendMessage(ChatColor.RED + "未找到玩家: " + args[1]);
+                        sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_PLAYER_NOT_FOUND, "player", args[1]));
                         return true;
                     }
                     uuid = meta.getUuid();
                     playerName = meta.getPlayerName() != null ? meta.getPlayerName() : uuid.toString();
                 } catch (SQLException e) {
-                    sender.sendMessage(ChatColor.RED + "查询玩家失败: " + e.getMessage());
+                    sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_QUERY_FAILED, "error", e.getMessage()));
                     return true;
                 }
             }
@@ -344,30 +351,30 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
             uuid = player.getUniqueId();
             playerName = player.getName();
         } else {
-            sender.sendMessage(ChatColor.RED + "请指定玩家: /li info <player>");
+            sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_SPECIFY_PLAYER));
             return true;
         }
 
         try {
             PlayerMeta meta = dao.getPlayerMeta(uuid);
             if (meta == null) {
-                sender.sendMessage(ChatColor.RED + "玩家数据不存在: " + playerName);
+                sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_DATA_NOT_FOUND, "player", playerName));
                 return true;
             }
             int currentPage = meta.getCurrentPage();
             int maxPage = meta.getMaxPage();
             int configMaxPages = configManager.getMaxPages();
 
-            sender.sendMessage(ChatColor.GOLD + "===== 玩家背包信息 =====");
-            sender.sendMessage(ChatColor.YELLOW + "玩家: " + ChatColor.WHITE + playerName);
-            sender.sendMessage(ChatColor.YELLOW + "当前页: " + ChatColor.WHITE + (currentPage + 1));
-            sender.sendMessage(ChatColor.YELLOW + "最大页: " + ChatColor.WHITE + (maxPage + 1));
-            sender.sendMessage(ChatColor.YELLOW + "配置限制: " + ChatColor.WHITE + (configMaxPages <= 0 ? "无限制" : configMaxPages));
+            sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_TITLE));
+            sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_PLAYER, "player", playerName));
+            sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_CURRENT_PAGE, "page", currentPage + 1));
+            sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_MAX_PAGE, "page", maxPage + 1));
+            sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_CONFIG_LIMIT, "limit", configMaxPages <= 0 ? "无限制" : String.valueOf(configMaxPages)));
 
             // 检查交接容器
             int handoverCount = handoverManager.getContainerItemCount(uuid);
             if (handoverCount > 0) {
-                sender.sendMessage(ChatColor.YELLOW + "交接容器物品: " + ChatColor.WHITE + handoverCount + " 个");
+                sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_HANDOVER_ITEMS, "count", handoverCount));
             }
 
             // 计算物品数量
@@ -376,10 +383,10 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
             for (Map<Integer, ItemStack> pageItems : allItems.values()) {
                 totalItems += pageItems.size();
             }
-            sender.sendMessage(ChatColor.YELLOW + "总物品数: " + ChatColor.WHITE + totalItems);
+            sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_TOTAL_ITEMS, "count", totalItems));
 
         } catch (SQLException e) {
-            sender.sendMessage(ChatColor.RED + "获取玩家信息失败: " + e.getMessage());
+            sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_GET_FAILED, "error", e.getMessage()));
         }
 
         return true;
@@ -389,12 +396,12 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
      * 发送帮助信息
      */
     private void sendHelp(CommandSender sender) {
-        sender.sendMessage(ChatColor.GOLD + "===== LargerInventory 管理员帮助 =====");
-        sender.sendMessage(ChatColor.YELLOW + "/li forcereset" + ChatColor.WHITE + " - 重置所有超出限制的玩家背包");
-        sender.sendMessage(ChatColor.YELLOW + "/li opencontainer [player]" + ChatColor.WHITE + " - 打开交接容器");
-        sender.sendMessage(ChatColor.YELLOW + "/li reload" + ChatColor.WHITE + " - 重载配置");
-        sender.sendMessage(ChatColor.YELLOW + "/li info [player]" + ChatColor.WHITE + " - 查看玩家背包信息");
-        sender.sendMessage(ChatColor.YELLOW + "/li bypass" + ChatColor.WHITE + " - 创造模式下临时解除按钮槽拦截");
+        sender.sendMessage(messageManager.get(MessageKeys.Command.HELP_TITLE));
+        sender.sendMessage(messageManager.get(MessageKeys.Command.HELP_FORCERESET));
+        sender.sendMessage(messageManager.get(MessageKeys.Command.HELP_OPENCONTAINER));
+        sender.sendMessage(messageManager.get(MessageKeys.Command.HELP_RELOAD));
+        sender.sendMessage(messageManager.get(MessageKeys.Command.HELP_INFO));
+        sender.sendMessage(messageManager.get(MessageKeys.Command.HELP_BYPASS));
     }
 
     @Override
