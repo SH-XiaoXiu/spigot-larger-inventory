@@ -12,6 +12,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class ConfigManager {
 
     private final JavaPlugin plugin;
+    private String language;
     private int prevButtonSlot;
     private int nextButtonSlot;
     private Material prevButtonMaterial;
@@ -34,6 +35,9 @@ public class ConfigManager {
         plugin.reloadConfig();
 
         FileConfiguration config = plugin.getConfig();
+
+        // 语言设置
+        language = config.getString("language", "zh_CN");
 
         // 按钮位置
         prevButtonSlot = config.getInt("buttons.prev-page-slot", 27);
@@ -140,6 +144,13 @@ public class ConfigManager {
      */
     public int getAutoSaveIntervalSeconds() {
         return autoSaveIntervalSeconds;
+    }
+
+    /**
+     * 获取语言设置
+     */
+    public String getLanguage() {
+        return language;
     }
 
     /**
