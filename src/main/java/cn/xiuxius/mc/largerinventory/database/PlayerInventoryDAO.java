@@ -265,21 +265,37 @@ public class PlayerInventoryDAO {
 
     /**
      * 创建交接容器物品
+     * 新物品追加到现有物品之后，避免重复调用时的唯一约束冲突
      */
     public void createHandoverItems(UUID uuid, List<ItemStack> items) throws SQLException {
         long now = System.currentTimeMillis();
+
+        // 查询当前最大 slot_index，新物品从其后追加
+        int startIndex = 0;
+        String maxSql = "SELECT COALESCE(MAX(slot_index) + 1, 0) FROM handover_container WHERE uuid = ?";
+        try (Connection maxConn = databaseManager.getConnection();
+             PreparedStatement maxStmt = maxConn.prepareStatement(maxSql)) {
+            maxStmt.setString(1, uuid.toString());
+            ResultSet rs = maxStmt.executeQuery();
+            if (rs.next()) {
+                startIndex = rs.getInt(1);
+            }
+        }
+
         String sql = "INSERT INTO handover_container (uuid, slot_index, item_data, data_version, created_at) VALUES (?, ?, ?, ?, ?)";
         try (Connection conn = databaseManager.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
+            int offset = 0;
             for (int i = 0; i < items.size(); i++) {
                 ItemStack item = items.get(i);
                 if (item != null && !item.getType().isAir()) {
                     stmt.setString(1, uuid.toString());
-                    stmt.setInt(2, i);
+                    stmt.setInt(2, startIndex + offset);
                     stmt.setBytes(3, serializeItem(item));
                     stmt.setInt(4, DATA_VERSION);
                     stmt.setLong(5, now);
                     stmt.addBatch();
+                    offset++;
                 }
             }
             stmt.executeBatch();

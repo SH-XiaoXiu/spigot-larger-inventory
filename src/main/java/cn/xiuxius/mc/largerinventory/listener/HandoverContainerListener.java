@@ -43,6 +43,20 @@ public class HandoverContainerListener implements Listener {
 
         // 如果点击的是交接容器
         if (clickedInventory != null && containerManager.isHandoverContainer(clickedInventory)) {
+            // 翻页按钮处理（最高优先级，提前返回）
+            int slot = event.getRawSlot();
+            if (slot == HandoverContainerManager.PREV_BUTTON_SLOT || slot == HandoverContainerManager.NEXT_BUTTON_SLOT) {
+                event.setCancelled(true);
+                int delta = (slot == HandoverContainerManager.NEXT_BUTTON_SLOT) ? 1 : -1;
+                containerManager.changePage(player, delta);
+                return;
+            }
+            // 阻止对导航行（45-53）的所有其他操作
+            if (slot >= HandoverContainerManager.ITEMS_PER_PAGE) {
+                event.setCancelled(true);
+                return;
+            }
+
             // 只允许取出物品（右键或左键取出）
             ItemStack cursor = event.getCursor();
             ItemStack currentItem = event.getCurrentItem();
@@ -58,14 +72,12 @@ public class HandoverContainerListener implements Listener {
                 // 允许Shift取出
                 // 注意：需要在事件后更新数据库
                 // 这里使用延迟任务来确保物品已被取出
-                int slot = event.getRawSlot();
                 Bukkit.getScheduler().runTaskLater(plugin, () -> containerManager.onItemTaken(player, slot), 1L);
                 return;
             }
 
             // 如果是取出物品（点击交接容器中的物品，光标为空）
             if (currentItem != null && !currentItem.getType().isAir() && (cursor == null || cursor.getType().isAir())) {
-                int slot = event.getRawSlot();
                 // 延迟更新数据库
                 Bukkit.getScheduler().runTaskLater(plugin, () -> containerManager.onItemTaken(player, slot), 1L);
                 return;
