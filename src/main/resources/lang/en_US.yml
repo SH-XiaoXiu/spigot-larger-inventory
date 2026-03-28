@@ -1,0 +1,139 @@
+# ==================== Prefix ====================
+prefix: "&6[LargerInventory]"
+
+# ==================== Command Help ====================
+command:
+  help:
+    title: "&6===== LargerInventory Admin Help ====="
+    forcereset: "&e/largerinventory forcereset &f- Reset all inventories exceeding limits"
+    opencontainer: "&e/largerinventory opencontainer [player] &f- Open handover container"
+    reload: "&e/largerinventory reload &f- Reload configuration"
+    info: "&e/largerinventory info [player] &f- View player inventory info"
+    bypass: "&e/largerinventory bypass &f- Temporarily disable button slot interception in creative mode"
+
+  error:
+    no-permission: "&cYou do not have permission to execute this command."
+    player-only: "&cThis command can only be executed by a player."
+
+  forcereset:
+    players-online: "&cThere are other players online. Please have all players log off before executing this command."
+    no-limit: "&eNo page limit set, no reset needed."
+    start: "&eStarting reset of all inventories exceeding limits..."
+    complete: "&aReset complete!"
+    count: "&ePlayers processed: {count}"
+    overflow: "&eTotal overflow items: {count}"
+    retrieve-hint: "&ePlayers can use /li opencontainer to retrieve overflow items."
+
+  opencontainer:
+    player-not-online: "&cPlayer {player} is not online."
+    no-items: "&ePlayer {player} has no items to retrieve."
+
+  reload:
+    success: "&aConfiguration reloaded."
+    validation-failed: "&cConfiguration validation failed, please check button slot settings."
+
+  info:
+    title: "&6===== Player Inventory Info ====="
+    player: "&ePlayer: &f{player}"
+    current-page: "&eCurrent Page: &f{page}"
+    max-page: "&eMax Page: &f{page}"
+    config-limit: "&eConfig Limit: &f{limit}"
+    handover-items: "&eHandover Container Items: &f{count}"
+    total-items: "&eTotal Items: &f{count}"
+    player-not-found: "&cPlayer not found: {player}"
+    query-failed: "&cFailed to query player: {error}"
+    specify-player: "&cPlease specify a player: /li info <player>"
+    data-not-found: "&cPlayer data not found: {player}"
+    get-failed: "&cFailed to get player info: {error}"
+
+  bypass:
+    creative-only: "&cBypass mode can only be used in creative mode."
+    enabled: "&6Bypass mode enabled. Button slot interception disabled."
+    enabled-hint-1: "&eCurrent inventory index unchanged. All edits apply to current page."
+    enabled-hint-2: "&eType /li bypass again to disable (must empty button slots first)."
+    disabled: "&aBypass mode disabled. Page buttons restored."
+    slot-not-empty: "&cButton slots contain items. Please move them before disabling bypass mode."
+
+# ==================== Handover Container ====================
+handover:
+  container-title: "&6Item Handover Container [{page}/{total}]"
+  no-items: "&eYou have no items to retrieve."
+  opened: "&aHandover container opened. Please retrieve your items."
+  note-readonly: "&eNote: You can only take items out, not put items in."
+  open-failed: "&cFailed to open handover container. Please contact an administrator."
+  all-retrieved: "&aAll items retrieved. Handover container has been destroyed."
+  nav:
+    page-info: "&7Page {page} / {total}"
+    prev-name: "&e◀ Previous Page"
+    next-name: "&eNext Page ▶"
+
+# ==================== Player Notifications ====================
+player:
+  items-pending: "&6You have {count} items waiting to be retrieved!"
+  retrieve-hint: "&eUse /li opencontainer to open the handover container and retrieve your items."
+  creative-overflow: "&6Left creative mode: {count} items could not fit in your inventory and have been stored in the handover container."
+
+# ==================== Button UI ====================
+button:
+  prev:
+    name: "&6◀ Previous Page"
+    first-page: "&7Already at first page"
+    lore:
+      current: "&eCurrent Page: {page}"
+      click: "&aClick to go to previous page"
+      cannot: "&cCannot go further back"
+  next:
+    name: "&6Next Page ▶"
+    last-page: "&7Already at last page"
+    lore:
+      current: "&eCurrent Page: {page}"
+      max: "&eMax Page: {page}"
+      click: "&aClick to go to next page"
+      cannot: "&cCannot go further forward"
+
+# ==================== Log Messages ====================
+log:
+  plugin:
+    enabled: "LargerInventory plugin enabled!"
+    disabled: "LargerInventory plugin disabled!"
+    button-positions: "Button positions: Previous={prev}, Next={next}"
+    max-pages: "Max pages: {limit}"
+    scheduled-task-started: "Scheduled task started: auto-save interval {interval} seconds"
+
+  config:
+    validation-failed: "Configuration validation failed, plugin will be disabled!"
+    button-slot-invalid: "Invalid {button} button slot: {slot}, must be between 9-35"
+    button-slots-same: "Both button slots cannot be the same: {slot}"
+
+  db:
+    init-complete: "Database initialized: {path} (version: {version})"
+    driver-not-found: "SQLite driver not found"
+    init-failed: "Database initialization failed"
+    connection-closed: "Database connection manager closed"
+    migration-start: "Starting database migration: v{from} → v{to}"
+    migration-complete: "Database migration complete"
+    migration-failed: "Database migration failed, rolled back"
+
+  player:
+    data-loaded: "Player {player} data loaded, current page: {current}, used pages: {max}"
+    data-load-failed: "Failed to load player {player} data: {error}"
+    data-save-failed: "Failed to save player data [{uuid}]: {error}"
+    inventory-reset: "Reset inventory for player {player}"
+
+  page:
+    load-failed: "Failed to load page [{uuid} page{page}]: {error}"
+    write-failed: "Async write failed [page {page}]: {error}"
+    metadata-update-failed: "Failed to update metadata: {error}"
+    lru-evict-failed: "LRU eviction write failed [page {page}]: {error}"
+    reload-failed: "Failed to reload page [{uuid}]: {error}"
+    dirty-flushed: "Dirty pages flushed"
+
+  handover:
+    created: "Created handover container for player {player} with {count} items"
+    create-failed: "Failed to create handover container: {error}"
+    open-failed: "Failed to open handover container: {error}"
+    item-taken: "Player {player} took item from handover container slot {slot}"
+    update-failed: "Failed to update handover container: {error}"
+    destroyed: "Handover container destroyed for player {player}"
+    auto-destroyed: "Handover container auto-destroyed for player {player} (empty)"
+    status-check-failed: "Failed to check handover container status: {error}"

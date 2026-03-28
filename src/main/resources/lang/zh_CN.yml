@@ -1,0 +1,139 @@
+# ==================== 前缀 ====================
+prefix: "&6[LargerInventory]"
+
+# ==================== 命令帮助 ====================
+command:
+  help:
+    title: "&6===== LargerInventory 管理员帮助 ====="
+    forcereset: "&e/largerinventory forcereset &f- 重置所有超出限制的玩家背包"
+    opencontainer: "&e/largerinventory opencontainer [player] &f- 打开交接容器"
+    reload: "&e/largerinventory reload &f- 重载配置"
+    info: "&e/largerinventory info [player] &f- 查看玩家背包信息"
+    bypass: "&e/largerinventory bypass &f- 创造模式下临时解除按钮槽拦截"
+
+  error:
+    no-permission: "&c你没有权限执行此命令。"
+    player-only: "&c此命令只能由玩家执行。"
+
+  forcereset:
+    players-online: "&c服务器上还有其他在线玩家，请先让所有玩家下线后再执行此命令。"
+    no-limit: "&e当前无页数限制，无需重置。"
+    start: "&e开始重置所有超出限制的玩家背包..."
+    complete: "&a重置完成！"
+    count: "&e处理玩家数: {count}"
+    overflow: "&e超出物品总数: {count}"
+    retrieve-hint: "&e玩家可使用 /li opencontainer 取回超出物品。"
+
+  opencontainer:
+    player-not-online: "&c玩家 {player} 不在线。"
+    no-items: "&e玩家 {player} 没有待领取的物品。"
+
+  reload:
+    success: "&a配置已重载。"
+    validation-failed: "&c配置验证失败，请检查按钮位置设置。"
+
+  info:
+    title: "&6===== 玩家背包信息 ====="
+    player: "&e玩家: &f{player}"
+    current-page: "&e当前页: &f{page}"
+    max-page: "&e最大页: &f{page}"
+    config-limit: "&e配置限制: &f{limit}"
+    handover-items: "&e交接容器物品: &f{count} 个"
+    total-items: "&e总物品数: &f{count}"
+    player-not-found: "&c未找到玩家: {player}"
+    query-failed: "&c查询玩家失败: {error}"
+    specify-player: "&c请指定玩家: /li info <player>"
+    data-not-found: "&c玩家数据不存在: {player}"
+    get-failed: "&c获取玩家信息失败: {error}"
+
+  bypass:
+    creative-only: "&cbypass 模式只能在创造模式下使用。"
+    enabled: "&6bypass 模式已开启，按钮槽拦截已解除。"
+    enabled-hint-1: "&e当前背包索引不变，所有编辑均针对当前页。"
+    enabled-hint-2: "&e再次输入 /li bypass 可关闭（需先清空按钮槽）。"
+    disabled: "&abypass 模式已关闭，翻页按钮已恢复。"
+    slot-not-empty: "&c按钮槽内有物品，请先将其移走再关闭 bypass 模式。"
+
+# ==================== 交接容器 ====================
+handover:
+  container-title: "&6物品交接容器 [{page}/{total}]"
+  no-items: "&e你没有待领取的物品。"
+  opened: "&a已打开交接容器，请取出你的物品。"
+  note-readonly: "&e注意：只能取出物品，不能放入物品。"
+  open-failed: "&c打开交接容器失败，请联系管理员。"
+  all-retrieved: "&a所有物品已领取完毕，交接容器已销毁。"
+  nav:
+    page-info: "&7第 {page} 页 / 共 {total} 页"
+    prev-name: "&e◀ 上一页"
+    next-name: "&e下一页 ▶"
+
+# ==================== 玩家通知 ====================
+player:
+  items-pending: "&6你有 {count} 个物品待领取！"
+  retrieve-hint: "&e使用 /li opencontainer 打开交接容器取回物品。"
+  creative-overflow: "&6离开创造模式：{count} 个物品无法放入背包，已存入交接容器。"
+
+# ==================== 按钮界面 ====================
+button:
+  prev:
+    name: "&6◀ 上一页"
+    first-page: "&7已到第一页"
+    lore:
+      current: "&e当前页: {page}"
+      click: "&a点击翻到上一页"
+      cannot: "&c无法继续向前"
+  next:
+    name: "&6下一页 ▶"
+    last-page: "&7已到最后一页"
+    lore:
+      current: "&e当前页: {page}"
+      max: "&e最大页: {page}"
+      click: "&a点击翻到下一页"
+      cannot: "&c无法继续向后"
+
+# ==================== 日志消息 ====================
+log:
+  plugin:
+    enabled: "LargerInventory 插件已启用！"
+    disabled: "LargerInventory 插件已禁用！"
+    button-positions: "按钮位置: 上一页={prev}, 下一页={next}"
+    max-pages: "最大页数: {limit}"
+    scheduled-task-started: "定时任务已启动：自动保存间隔 {interval} 秒"
+
+  config:
+    validation-failed: "配置验证失败，插件将禁用！"
+    button-slot-invalid: "{button}按钮位置无效: {slot}，必须在9-35范围内"
+    button-slots-same: "两个按钮位置不能相同: {slot}"
+
+  db:
+    init-complete: "数据库初始化完成: {path} (版本: {version})"
+    driver-not-found: "SQLite 驱动未找到"
+    init-failed: "数据库初始化失败"
+    connection-closed: "数据库连接管理器已关闭"
+    migration-start: "开始数据库迁移: v{from} → v{to}"
+    migration-complete: "数据库迁移完成"
+    migration-failed: "数据库迁移失败，已回滚"
+
+  player:
+    data-loaded: "玩家 {player} 数据已加载，当前页: {current}，已用页: {max}"
+    data-load-failed: "加载玩家 {player} 数据失败: {error}"
+    data-save-failed: "同步保存玩家数据失败 [{uuid}]: {error}"
+    inventory-reset: "已重置玩家 {player} 的背包"
+
+  page:
+    load-failed: "加载页面失败 [{uuid} 页{page}]: {error}"
+    write-failed: "异步写入失败 [页{page}]: {error}"
+    metadata-update-failed: "更新元数据失败: {error}"
+    lru-evict-failed: "LRU 驱逐写入失败 [页{page}]: {error}"
+    reload-failed: "重载页面失败 [{uuid}]: {error}"
+    dirty-flushed: "脏页刷写完成"
+
+  handover:
+    created: "为玩家 {player} 创建交接容器，共 {count} 个物品"
+    create-failed: "创建交接容器失败: {error}"
+    open-failed: "打开交接容器失败: {error}"
+    item-taken: "玩家 {player} 从交接容器取出了槽位 {slot} 的物品"
+    update-failed: "更新交接容器失败: {error}"
+    destroyed: "玩家 {player} 的交接容器已销毁"
+    auto-destroyed: "玩家 {player} 的交接容器已自动销毁（已空）"
+    status-check-failed: "检查交接容器状态失败: {error}"
