@@ -66,14 +66,31 @@ settings:
 | `/li info [player]` | 查看玩家背包信息 | `largerinventory.admin` |
 | `/li forcereset` | 强制重置超出限制的背包 | `largerinventory.admin` |
 | `/li opencontainer [player]` | 打开交接容器 | `largerinventory.admin` |
+| `/li bypass` | 创造模式下临时解除按钮槽拦截 | `largerinventory.admin.bypass` |
 | `/li reload` | 重载配置文件 | `largerinventory.admin` |
+
+### Bypass 模式
+
+创造模式下使用 `/li bypass` 可临时解除按钮槽拦截，允许管理员自由编辑背包中的按钮槽位。
+
+- **开启条件**：必须处于创造模式
+- **使用方式**：输入 `/li bypass` 开启，再次输入关闭
+- **关闭要求**：关闭前需先清空按钮槽中的物品
+- **自动退出**：切换出创造模式时自动关闭 bypass 模式 |
 
 ## 权限
 
 | 权限节点 | 说明 | 默认 |
 |----------|------|------|
 | `largerinventory.use` | 使用扩展背包功能 | 玩家 |
-| `largerinventory.admin` | 管理员命令权限 | OP |
+| `largerinventory.player.opencontainer` | 打开自己的交接容器 | 玩家 |
+| `largerinventory.player.info` | 查看自己的背包信息 | 玩家 |
+| `largerinventory.admin.forcereset` | 强制重置背包 | OP |
+| `largerinventory.admin.opencontainer` | 打开任意玩家交接容器 | OP |
+| `largerinventory.admin.reload` | 重载配置 | OP |
+| `largerinventory.admin.info` | 查看任意玩家背包信息 | OP |
+| `largerinventory.admin.bypass` | 创造模式下解除按钮槽拦截 | OP |
+| `largerinventory.admin.*` | 所有管理员权限 | OP |
 
 ### 数据存储
 

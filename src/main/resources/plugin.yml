@@ -2,7 +2,7 @@ name: LargerInventory
 version: '1.0'
 main: cn.xiuxius.mc.LargerInventory
 api-version: '1.21'
-prefix: LargerBag
+prefix: LargerInventory
 authors: [ XiaoXiu ]
 description: 更大的背包
 website: www.xiuxius.cn
@@ -36,6 +36,9 @@ permissions:
   largerinventory.admin.info:
     description: 允许查看任意玩家的背包信息
     default: op
+  largerinventory.admin.bypass:
+    description: 允许在创造模式下临时解除按钮槽拦截
+    default: op
   largerinventory.admin.*:
     description: 所有管理员权限
     default: op
@@ -44,3 +47,4 @@ permissions:
       largerinventory.admin.opencontainer: true
       largerinventory.admin.reload: true
       largerinventory.admin.info: true
+      largerinventory.admin.bypass: true

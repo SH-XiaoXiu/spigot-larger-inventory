@@ -4,7 +4,9 @@ import cn.xiuxius.mc.largerinventory.config.ConfigManager;
 import cn.xiuxius.mc.largerinventory.database.PlayerInventoryDAO;
 import cn.xiuxius.mc.largerinventory.database.model.PlayerMeta;
 import cn.xiuxius.mc.largerinventory.handover.HandoverContainerManager;
+import cn.xiuxius.mc.largerinventory.inventory.BypassManager;
 import cn.xiuxius.mc.largerinventory.inventory.PageManager;
+import org.bukkit.GameMode;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
@@ -29,15 +31,19 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
     private final JavaPlugin plugin;
     private final ConfigManager configManager;
     private final PlayerInventoryDAO dao;
-    private final PageManager pageManager; //暂时不用
+    private final PageManager pageManager;
     private final HandoverContainerManager handoverManager;
+    private final BypassManager bypassManager;
 
-    public AdminCommand(JavaPlugin plugin, ConfigManager configManager, PlayerInventoryDAO dao, PageManager pageManager, HandoverContainerManager handoverManager) {
+    public AdminCommand(JavaPlugin plugin, ConfigManager configManager, PlayerInventoryDAO dao,
+                        PageManager pageManager, HandoverContainerManager handoverManager,
+                        BypassManager bypassManager) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.dao = dao;
         this.pageManager = pageManager;
         this.handoverManager = handoverManager;
+        this.bypassManager = bypassManager;
     }
 
     @Override
@@ -54,6 +60,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
             case "opencontainer" -> handleOpenContainer(sender, args);
             case "reload" -> handleReload(sender);
             case "info" -> handleInfo(sender, args);
+            case "bypass" -> handleBypass(sender);
             default -> {
                 sendHelp(sender);
                 yield true;
@@ -267,6 +274,40 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
     }
 
     /**
+     * 创造模式 bypass：临时解除按钮槽拦截
+     */
+    private boolean handleBypass(CommandSender sender) {
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(ChatColor.RED + "此命令只能由玩家执行。");
+            return true;
+        }
+        if (!player.hasPermission("largerinventory.admin.bypass")) {
+            sender.sendMessage(ChatColor.RED + "你没有权限执行此命令。");
+            return true;
+        }
+        if (player.getGameMode() != GameMode.CREATIVE) {
+            sender.sendMessage(ChatColor.RED + "bypass 模式只能在创造模式下使用。");
+            return true;
+        }
+
+        UUID uuid = player.getUniqueId();
+        if (bypassManager.isInBypass(uuid)) {
+            boolean ok = bypassManager.exitBypass(player, pageManager, configManager);
+            if (!ok) {
+                player.sendMessage(ChatColor.RED + "按钮槽内有物品，请先将其移走再关闭 bypass 模式。");
+            } else {
+                player.sendMessage(ChatColor.GREEN + "bypass 模式已关闭，翻页按钮已恢复。");
+            }
+        } else {
+            bypassManager.enterBypass(player, configManager);
+            player.sendMessage(ChatColor.GOLD + "bypass 模式已开启，按钮槽拦截已解除。");
+            player.sendMessage(ChatColor.YELLOW + "当前背包索引不变，所有编辑均针对当前页。");
+            player.sendMessage(ChatColor.YELLOW + "再次输入 /li bypass 可关闭（需先清空按钮槽）。");
+        }
+        return true;
+    }
+
+    /**
      * 查看玩家信息
      */
     private boolean handleInfo(CommandSender sender, String[] args) {
@@ -353,6 +394,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(ChatColor.YELLOW + "/li opencontainer [player]" + ChatColor.WHITE + " - 打开交接容器");
         sender.sendMessage(ChatColor.YELLOW + "/li reload" + ChatColor.WHITE + " - 重载配置");
         sender.sendMessage(ChatColor.YELLOW + "/li info [player]" + ChatColor.WHITE + " - 查看玩家背包信息");
+        sender.sendMessage(ChatColor.YELLOW + "/li bypass" + ChatColor.WHITE + " - 创造模式下临时解除按钮槽拦截");
     }
 
     @Override
@@ -360,7 +402,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
 
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("forcereset", "opencontainer", "reload", "info"));
+            completions.addAll(Arrays.asList("forcereset", "opencontainer", "reload", "info", "bypass"));
         } else if (args.length == 2) {
             if (args[0].equalsIgnoreCase("opencontainer") || args[0].equalsIgnoreCase("info")) {
                 completions.addAll(Bukkit.getOnlinePlayers().stream()

@@ -384,6 +384,41 @@ public class PageManager {
     //UI 相关 
 
     /**
+     * 从缓存（或 DB）重载当前页，不快照现有背包内容。
+     * 用于从创造模式切换回来时恢复受插件管控的背包状态。
+     */
+    public void reloadCurrentPage(Player player) {
+        UUID uuid = player.getUniqueId();
+        PlayerPageData data = playerDataCache.get(uuid);
+        if (data == null || data.switching) return;
+
+        clearInventoryMain(player);
+        CachedPage cached = data.cache.get(data.currentPage);
+        if (cached != null) {
+            loadItemsToInventory(player, cached.items);
+            updateButtons(player, data.currentPage, data.maxPage);
+        } else {
+            // 缓存未命中，异步从 DB 加载
+            data.switching = true;
+            plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+                try {
+                    Map<Integer, ItemStack> items = dao.loadPageItems(uuid, data.currentPage);
+                    plugin.getServer().getScheduler().runTask(plugin, () -> {
+                        data.switching = false;
+                        if (!player.isOnline()) return;
+                        data.cache.put(data.currentPage, new CachedPage(new HashMap<>(items), false));
+                        loadItemsToInventory(player, items);
+                        updateButtons(player, data.currentPage, data.maxPage);
+                    });
+                } catch (SQLException e) {
+                    plugin.getLogger().severe("重载页面失败 [" + uuid + "]: " + e.getMessage());
+                    plugin.getServer().getScheduler().runTask(plugin, () -> data.switching = false);
+                }
+            });
+        }
+    }
+
+    /**
      * 恢复按钮到正确位置（供事件监听器调用，防止排序模组移动按钮）
      */
     public void restoreButtons(Player player) {

@@ -6,6 +6,7 @@ import cn.xiuxius.mc.largerinventory.database.DatabaseManager;
 import cn.xiuxius.mc.largerinventory.database.PlayerInventoryDAO;
 import cn.xiuxius.mc.largerinventory.listener.HandoverContainerListener;
 import cn.xiuxius.mc.largerinventory.handover.HandoverContainerManager;
+import cn.xiuxius.mc.largerinventory.inventory.BypassManager;
 import cn.xiuxius.mc.largerinventory.inventory.ButtonManager;
 import cn.xiuxius.mc.largerinventory.inventory.PageManager;
 import cn.xiuxius.mc.largerinventory.listener.*;
@@ -23,6 +24,7 @@ public final class LargerInventory extends JavaPlugin {
     private ButtonManager buttonManager;
     private PageManager pageManager;
     private HandoverContainerManager handoverContainerManager;
+    private BypassManager bypassManager;
 
     // 定时任务
     private BukkitTask autoSaveTask;
@@ -55,6 +57,9 @@ public final class LargerInventory extends JavaPlugin {
 
         // 初始化交接容器管理器
         handoverContainerManager = new HandoverContainerManager(this, playerInventoryDAO);
+
+        // 初始化 bypass 管理器
+        bypassManager = new BypassManager();
 
         // 注册事件监听器
         registerListeners();
@@ -99,12 +104,12 @@ public final class LargerInventory extends JavaPlugin {
     private void registerListeners() {
         // 背包点击监听器（核心）
         getServer().getPluginManager().registerEvents(
-                new InventoryClickListener(this, configManager, buttonManager, pageManager), this);
+                new InventoryClickListener(this, configManager, buttonManager, pageManager, bypassManager), this);
 
         // 拖拽监听器（已合并到InventoryClickListener中）
         // 丢弃监听器
         getServer().getPluginManager().registerEvents(
-                new PlayerDropItemListener(buttonManager), this);
+                new PlayerDropItemListener(configManager, buttonManager), this);
 
         // 玩家加入/退出监听器
         getServer().getPluginManager().registerEvents(
@@ -115,13 +120,17 @@ public final class LargerInventory extends JavaPlugin {
         // 交接容器监听器
         getServer().getPluginManager().registerEvents(
                 new HandoverContainerListener(this, handoverContainerManager), this);
+
+        // 游戏模式切换监听器（离开创造模式时修复按钮槽）
+        getServer().getPluginManager().registerEvents(
+                new PlayerGameModeChangeListener(this, pageManager, handoverContainerManager, bypassManager), this);
     }
 
     /**
      * 注册命令
      */
     private void registerCommands() {
-        AdminCommand adminCommand = new AdminCommand(this, configManager, playerInventoryDAO, pageManager, handoverContainerManager);
+        AdminCommand adminCommand = new AdminCommand(this, configManager, playerInventoryDAO, pageManager, handoverContainerManager, bypassManager);
         getCommand("largerinventory").setExecutor(adminCommand);
         getCommand("largerinventory").setTabCompleter(adminCommand);
     }
