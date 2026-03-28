@@ -33,6 +33,9 @@ public final class LargerInventory extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        // 打印版本信息
+        getLogger().info("Version: " + getDescription().getVersion());
+
         // 初始化配置
         configManager = new ConfigManager(this);
         configManager.load();

@@ -4,7 +4,39 @@ plugins {
 }
 
 group = 'cn.xiuxius.mc'
-version = '0.0.1'
+
+// 获取开发版本: commit短hash + 时间戳
+static def getDevVersion() {
+    try {
+        def commit = 'git rev-parse --short HEAD'.execute().text.trim()
+        def timestamp = new Date().format('yyyyMMdd-HHmm')
+        return "${commit}-${timestamp}"
+    } catch (Exception e) {
+        return 'dev-SNAPSHOT'
+    }
+}
+
+// 获取发布版本: tag-hash (如果没有tag则用 commit)
+static def getReleaseVersion() {
+    try {
+        // 获取最近的tag（不含commit后缀）
+        def tag = 'git describe --tags --abbrev=0'.execute().text.trim()
+        def commit = 'git rev-parse --short HEAD'.execute().text.trim()
+        return "${tag}-${commit}"
+    } catch (Exception ignored) {
+        // 没有tag时，只用commit
+        def commit = 'git rev-parse --short HEAD'.execute().text.trim()
+        return "untagged-${commit}"
+    }
+}
+
+// 判断是否执行 release task
+def isRelease = gradle.startParameter.taskNames.contains('release')
+
+// 根据构建类型选择版本
+version = isRelease ? getReleaseVersion() : getDevVersion()
+
+println "Building version: ${version} (${isRelease ? 'release' : 'dev'})"
 
 repositories {
     mavenCentral()
@@ -46,10 +78,16 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 processResources {
-    def props = [version: version]
-    inputs.properties props
     filteringCharset 'UTF-8'
     filesMatching('plugin.yml') {
-        expand props
+        expand version: project.version
     }
+}
+
+// Release task: 构建发布版本
+tasks.register('release') {
+    group = 'build'
+    description = 'Build with release version (tag-commit)'
+
+    dependsOn tasks.jar
 }

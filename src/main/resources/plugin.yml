@@ -1,5 +1,5 @@
 name: LargerInventory
-version: '1.0'
+version: '${version}'
 main: cn.xiuxius.mc.LargerInventory
 api-version: '1.21'
 prefix: LargerInventory
