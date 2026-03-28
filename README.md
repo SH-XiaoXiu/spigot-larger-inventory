@@ -33,7 +33,7 @@
 
 ## 安装
 
-1. 下载最新版本的 JAR 文件
+1. 从 [Releases](https://gitee.com/sh-xiaoxiu/spigot-larger-inventory/releases) 下载最新版本的 JAR 文件
 2. 放入服务器的 `plugins` 目录
 3. 重启服务器或使用插件管理器加载
 
