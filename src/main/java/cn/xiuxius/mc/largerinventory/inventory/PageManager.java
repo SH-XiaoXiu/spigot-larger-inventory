@@ -567,4 +567,223 @@ public class PageManager {
         PlayerPageData data = playerDataCache.get(uuid);
         return data != null ? data.maxPage : 0;
     }
+
+    //跨页拾取相关
+
+    /**
+     * 尝试将物品存放到所有页面（当前页优先，堆叠优先）
+     * <p>
+     * 策略：
+     * 前页 → 尝试堆叠或放入空槽
+     * 其他已使用的页 → 尝试堆叠
+     * 新页 → 放入空槽
+     *
+     * @param player 玩家
+     * @param item   要存放的物品（会被修改）
+     * @return 无法存放的物品数量（0 表示全部存放成功）
+     */
+    public int addItemAcrossPages(Player player, ItemStack item) {
+        UUID uuid = player.getUniqueId();
+        PlayerPageData data = playerDataCache.get(uuid);
+        if (data == null || data.switching) {
+            return item.getAmount();
+        }
+
+        int prevSlot = configManager.getPrevButtonSlot();
+        int nextSlot = configManager.getNextButtonSlot();
+        int maxStack = item.getMaxStackSize();
+
+        // 1. 先尝试在当前页堆叠
+        int remaining = tryStackInPage(player, item, prevSlot, nextSlot);
+        if (remaining <= 0) return 0;
+
+        // 2. 尝试在当前页找空槽
+        remaining = tryPlaceInEmptySlots(player, item, remaining, prevSlot, nextSlot);
+        if (remaining <= 0) return 0;
+
+        // 3. 遍历其他页尝试堆叠
+        remaining = tryStackInOtherPages(player, item, remaining, data, prevSlot, nextSlot);
+        if (remaining <= 0) return 0;
+
+        // 4. 尝试在新页或现有页的空槽存放
+        remaining = tryPlaceInOtherPagesEmptySlots(player, item, remaining, data, prevSlot, nextSlot);
+
+        return remaining;
+    }
+
+    /**
+     * 尝试在指定页面堆叠物品（仅检查背包内容，不涉及缓存）
+     */
+    private int tryStackInPage(Player player, ItemStack item, int prevSlot, int nextSlot) {
+        int remaining = item.getAmount();
+        int maxStack = item.getMaxStackSize();
+
+        for (int slot = 9; slot <= 35 && remaining > 0; slot++) {
+            if (slot == prevSlot || slot == nextSlot) continue;
+
+            ItemStack existing = player.getInventory().getItem(slot);
+            if (existing != null && existing.isSimilar(item) && existing.getAmount() < maxStack) {
+                int canAdd = maxStack - existing.getAmount();
+                int toAdd = Math.min(remaining, canAdd);
+                existing.setAmount(existing.getAmount() + toAdd);
+                remaining -= toAdd;
+            }
+        }
+
+        item.setAmount(remaining);
+        return remaining;
+    }
+
+    /**
+     * 尝试在指定页面的空槽放置物品
+     */
+    private int tryPlaceInEmptySlots(Player player, ItemStack item, int remaining, int prevSlot, int nextSlot) {
+        for (int slot = 9; slot <= 35 && remaining > 0; slot++) {
+            if (slot == prevSlot || slot == nextSlot) continue;
+
+            ItemStack existing = player.getInventory().getItem(slot);
+            if (existing == null || existing.getType().isAir()) {
+                int toPlace = Math.min(remaining, item.getMaxStackSize());
+                ItemStack newItem = item.clone();
+                newItem.setAmount(toPlace);
+                player.getInventory().setItem(slot, newItem);
+                remaining -= toPlace;
+            }
+        }
+
+        item.setAmount(remaining);
+        return remaining;
+    }
+
+    /**
+     * 尝试在其他页面堆叠物品
+     */
+    private int tryStackInOtherPages(Player player, ItemStack item, int remaining,
+                                      PlayerPageData data, int prevSlot, int nextSlot) {
+        UUID uuid = player.getUniqueId();
+        int currentPage = data.currentPage;
+
+        // 遍历所有可能的页面
+        for (int page = 0; page < getEffectiveMaxPages() && remaining > 0; page++) {
+            if (page == currentPage) continue;
+
+            Map<Integer, ItemStack> pageItems = getPageItems(uuid, page, data);
+            if (pageItems == null || pageItems.isEmpty()) continue;
+
+            // 尝试堆叠
+            for (Map.Entry<Integer, ItemStack> entry : pageItems.entrySet()) {
+                int slot = entry.getKey();
+                if (slot == prevSlot || slot == nextSlot) continue;
+
+                ItemStack existing = entry.getValue();
+                if (existing != null && existing.isSimilar(item) && existing.getAmount() < item.getMaxStackSize()) {
+                    int canAdd = item.getMaxStackSize() - existing.getAmount();
+                    int toAdd = Math.min(remaining, canAdd);
+                    existing.setAmount(existing.getAmount() + toAdd);
+                    remaining -= toAdd;
+
+                    // 标记该页为脏
+                    markPageDirty(uuid, page, data, pageItems);
+                }
+            }
+        }
+
+        item.setAmount(remaining);
+        return remaining;
+    }
+
+    /**
+     * 尝试在其他页面的空槽放置物品
+     */
+    private int tryPlaceInOtherPagesEmptySlots(Player player, ItemStack item, int remaining,
+                                                PlayerPageData data, int prevSlot, int nextSlot) {
+        UUID uuid = player.getUniqueId();
+        int currentPage = data.currentPage;
+
+        for (int page = 0; page < getEffectiveMaxPages() && remaining > 0; page++) {
+            if (page == currentPage) continue;
+
+            Map<Integer, ItemStack> pageItems = getPageItems(uuid, page, data);
+
+            // 检查该页是否有空槽
+            boolean hasEmptySlot = false;
+            Set<Integer> occupiedSlots = pageItems != null ? pageItems.keySet() : Collections.emptySet();
+
+            for (int slot = 9; slot <= 35; slot++) {
+                if (slot == prevSlot || slot == nextSlot) continue;
+                if (!occupiedSlots.contains(slot)) {
+                    hasEmptySlot = true;
+                    break;
+                }
+            }
+
+            if (!hasEmptySlot) continue;
+
+            // 在该页空槽放置物品
+            if (pageItems == null) {
+                pageItems = new HashMap<>();
+            }
+
+            for (int slot = 9; slot <= 35 && remaining > 0; slot++) {
+                if (slot == prevSlot || slot == nextSlot) continue;
+                if (!pageItems.containsKey(slot)) {
+                    int toPlace = Math.min(remaining, item.getMaxStackSize());
+                    ItemStack newItem = item.clone();
+                    newItem.setAmount(toPlace);
+                    pageItems.put(slot, newItem);
+                    remaining -= toPlace;
+
+                    // 更新 maxPage
+                    if (page > data.maxPage) {
+                        data.maxPage = page;
+                    }
+                }
+            }
+
+            // 保存到缓存
+            markPageDirty(uuid, page, data, pageItems);
+        }
+
+        item.setAmount(remaining);
+        return remaining;
+    }
+
+    /**
+     * 获取指定页面的物品（优先缓存，缓存未命中时同步从数据库加载）
+     */
+    private Map<Integer, ItemStack> getPageItems(UUID uuid, int page, PlayerPageData data) {
+        CachedPage cached = data.cache.get(page);
+        if (cached != null) {
+            return cached.items;
+        }
+
+        // 同步从数据库加载
+        try {
+            Map<Integer, ItemStack> items = dao.loadPageItems(uuid, page);
+            data.cache.put(page, new CachedPage(new HashMap<>(items), false));
+            return items;
+        } catch (SQLException e) {
+            plugin.getLogger().warning("Failed to load page " + page + " for cross-page pickup: " + e.getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * 标记页面为脏并更新缓存
+     */
+    private void markPageDirty(UUID uuid, int page, PlayerPageData data, Map<Integer, ItemStack> items) {
+        CachedPage cached = data.cache.get(page);
+        if (cached != null) {
+            // 缓存已存在，确保 items 同步到缓存
+            // items 可能是 cached.items 的引用，也可能是一个新 map
+            if (cached.items != items) {
+                cached.items.clear();
+                cached.items.putAll(items);
+            }
+            cached.dirty = true;
+        } else {
+            // 缓存不存在，创建新的缓存条目
+            data.cache.put(page, new CachedPage(new HashMap<>(items), true));
+        }
+    }
 }

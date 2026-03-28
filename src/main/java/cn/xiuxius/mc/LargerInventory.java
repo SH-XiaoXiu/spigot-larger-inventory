@@ -31,6 +31,9 @@ public final class LargerInventory extends JavaPlugin {
     // 定时任务
     private BukkitTask autoSaveTask;
 
+    // 监听器
+    private PlayerPickupItemListener pickupItemListener;
+
     @Override
     public void onEnable() {
         // 打印版本信息
@@ -100,6 +103,12 @@ public final class LargerInventory extends JavaPlugin {
         if (autoSaveTask != null) {
             autoSaveTask.cancel();
         }
+
+        // 清理拾取监听器的资源
+        if (pickupItemListener != null) {
+            pickupItemListener.cleanup();
+        }
+
         // 保存所有在线玩家数据
         for (Player player : Bukkit.getOnlinePlayers()) {
             pageManager.saveAndClearPlayer(player);
@@ -137,6 +146,10 @@ public final class LargerInventory extends JavaPlugin {
         // 游戏模式切换监听器（离开创造模式时修复按钮槽）
         getServer().getPluginManager().registerEvents(
                 new PlayerGameModeChangeListener(this, pageManager, handoverContainerManager, bypassManager, messageManager), this);
+
+        // 跨页拾取监听器
+        pickupItemListener = new PlayerPickupItemListener(this, configManager, pageManager, buttonManager);
+        getServer().getPluginManager().registerEvents(pickupItemListener, this);
     }
 
     /**

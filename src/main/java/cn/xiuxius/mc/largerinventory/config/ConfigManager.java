@@ -22,6 +22,7 @@ public class ConfigManager {
     private int maxPages;
     private int backupRetentionDays;
     private int autoSaveIntervalSeconds;
+    private boolean crossPagePickup;
 
     public ConfigManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -55,6 +56,9 @@ public class ConfigManager {
         // 数据保护
         backupRetentionDays = config.getInt("data.backup-retention-days", 7);
         autoSaveIntervalSeconds = config.getInt("data.auto-save-interval-seconds", 300);
+
+        // 跨页拾取
+        crossPagePickup = config.getBoolean("features.cross-page-pickup", true);
     }
 
     /**
@@ -151,6 +155,13 @@ public class ConfigManager {
      */
     public String getLanguage() {
         return language;
+    }
+
+    /**
+     * 是否启用跨页拾取
+     */
+    public boolean isCrossPagePickup() {
+        return crossPagePickup;
     }
 
     /**

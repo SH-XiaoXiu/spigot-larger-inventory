@@ -19,6 +19,11 @@ limits:
   # 0表示使用插件最大限制 (99页)
   max-pages: 0
 
+# 功能开关
+features:
+  # 跨页拾取：当背包页满时自动将物品存放到其他页
+  cross-page-pickup: true
+
 # 数据保护
 data:
   backup-retention-days: 7
