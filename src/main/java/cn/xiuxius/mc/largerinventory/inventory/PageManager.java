@@ -786,4 +786,89 @@ public class PageManager {
             data.cache.put(page, new CachedPage(new HashMap<>(items), true));
         }
     }
+
+    //跨页死亡掉落相关
+
+    /**
+     * 获取玩家所有页面的物品（用于死亡掉落）
+     * <p>
+     * 合并缓存和数据库中的所有物品，返回按页分组的物品映射
+     *
+     * @param player 玩家
+     * @return 按页分组的物品映射 (pageNumber -> (slot -> ItemStack))
+     */
+    public Map<Integer, Map<Integer, ItemStack>> getAllPageItems(Player player) {
+        UUID uuid = player.getUniqueId();
+        PlayerPageData data = playerDataCache.get(uuid);
+        Map<Integer, Map<Integer, ItemStack>> allItems = new HashMap<>();
+
+        if (data == null) {
+            return allItems;
+        }
+
+        int prevSlot = configManager.getPrevButtonSlot();
+        int nextSlot = configManager.getNextButtonSlot();
+
+        // 1. 先快照当前页并加入缓存
+        snapshotToCache(player, data);
+
+        // 2. 从数据库加载所有物品
+        try {
+            allItems = dao.loadAllItems(uuid);
+        } catch (SQLException e) {
+            plugin.getLogger().warning("加载玩家所有页面物品失败: " + e.getMessage());
+        }
+
+        // 3. 用缓存中的数据覆盖数据库数据（缓存是最新状态）
+        for (Map.Entry<Integer, CachedPage> entry : data.cache.entrySet()) {
+            int pageNum = entry.getKey();
+            CachedPage cachedPage = entry.getValue();
+            // 过滤掉按钮物品
+            Map<Integer, ItemStack> filteredItems = new HashMap<>();
+            for (Map.Entry<Integer, ItemStack> itemEntry : cachedPage.items.entrySet()) {
+                int slot = itemEntry.getKey();
+                if (slot != prevSlot && slot != nextSlot) {
+                    ItemStack item = itemEntry.getValue();
+                    if (item != null && !item.getType().isAir() && !buttonManager.isButton(item)) {
+                        filteredItems.put(slot, item.clone());
+                    }
+                }
+            }
+            if (!filteredItems.isEmpty()) {
+                allItems.put(pageNum, filteredItems);
+            } else {
+                allItems.remove(pageNum);
+            }
+        }
+
+        return allItems;
+    }
+
+    /**
+     * 清空玩家所有页面的物品（用于死亡掉落后清理）
+     *
+     * @param player 玩家
+     */
+    public void clearAllPages(Player player) {
+        UUID uuid = player.getUniqueId();
+        PlayerPageData data = playerDataCache.get(uuid);
+        if (data == null) return;
+
+        // 清空缓存中所有页面
+        data.cache.clear();
+        data.currentPage = 0;
+        data.maxPage = 0;
+
+        // 清空数据库中所有物品
+        try {
+            dao.clearAllItems(uuid);
+            dao.updatePlayerMeta(uuid, 0, 0);
+        } catch (SQLException e) {
+            plugin.getLogger().warning("清空玩家所有页面物品失败: " + e.getMessage());
+        }
+
+        // 清空背包UI（保留按钮）
+        clearInventoryMain(player);
+        updateButtons(player, 0, 0);
+    }
 }

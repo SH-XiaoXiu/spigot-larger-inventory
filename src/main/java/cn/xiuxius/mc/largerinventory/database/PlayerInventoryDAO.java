@@ -261,6 +261,18 @@ public class PlayerInventoryDAO {
         }
     }
 
+    /**
+     * 删除玩家所有页面的物品
+     */
+    public void clearAllItems(UUID uuid) throws SQLException {
+        String sql = "DELETE FROM player_inventory WHERE uuid = ?";
+        try (Connection conn = databaseManager.getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.setString(1, uuid.toString());
+            stmt.executeUpdate();
+        }
+    }
+
     // 交接容器操作
 
     /**

@@ -150,6 +150,10 @@ public final class LargerInventory extends JavaPlugin {
         // 跨页拾取监听器
         pickupItemListener = new PlayerPickupItemListener(this, configManager, pageManager, buttonManager);
         getServer().getPluginManager().registerEvents(pickupItemListener, this);
+
+        // 跨页死亡掉落监听器
+        getServer().getPluginManager().registerEvents(
+                new PlayerDeathListener(configManager, pageManager, buttonManager), this);
     }
 
     /**

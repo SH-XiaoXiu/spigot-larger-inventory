@@ -23,6 +23,8 @@ limits:
 features:
   # 跨页拾取：当背包页满时自动将物品存放到其他页
   cross-page-pickup: true
+  # 跨页死亡掉落：死亡时所有页面的物品都会掉落（与游戏规则 keepInventory 同步）
+  cross-page-death-drop: true
 
 # 数据保护
 data:

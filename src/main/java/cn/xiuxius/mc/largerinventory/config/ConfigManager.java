@@ -23,6 +23,7 @@ public class ConfigManager {
     private int backupRetentionDays;
     private int autoSaveIntervalSeconds;
     private boolean crossPagePickup;
+    private boolean crossPageDeathDrop;
 
     public ConfigManager(JavaPlugin plugin) {
         this.plugin = plugin;
@@ -59,6 +60,8 @@ public class ConfigManager {
 
         // 跨页拾取
         crossPagePickup = config.getBoolean("features.cross-page-pickup", true);
+        // 跨页死亡掉落
+        crossPageDeathDrop = config.getBoolean("features.cross-page-death-drop", true);
     }
 
     /**
@@ -162,6 +165,13 @@ public class ConfigManager {
      */
     public boolean isCrossPagePickup() {
         return crossPagePickup;
+    }
+
+    /**
+     * 是否启用跨页死亡掉落
+     */
+    public boolean isCrossPageDeathDrop() {
+        return crossPageDeathDrop;
     }
 
     /**
