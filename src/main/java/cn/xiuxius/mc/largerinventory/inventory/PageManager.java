@@ -520,11 +520,16 @@ public class PageManager implements Reloadable {
      * 跨页拾取前的异步预加载。
      * 将玩家 maxPage 以内的、缓存未命中的页面异步加载进缓存，
      * 使后续 addItemAcrossPages 的缓存命中率接近 100%。
+     *
+     * @param onComplete 预加载完成后在主线程调用的回调
      */
-    public void preloadPagesForPickup(Player player) {
+    public void preloadPagesForPickup(Player player, Runnable onComplete) {
         UUID uuid = player.getUniqueId();
         PlayerPageData data = playerDataCache.get(uuid);
-        if (data == null) return;
+        if (data == null) {
+            onComplete.run();
+            return;
+        }
 
         List<Integer> toLoad = new ArrayList<>();
         for (int page = 0; page <= data.maxPage; page++) {
@@ -532,7 +537,10 @@ public class PageManager implements Reloadable {
                 toLoad.add(page);
             }
         }
-        if (toLoad.isEmpty()) return;
+        if (toLoad.isEmpty()) {
+            onComplete.run();
+            return;
+        }
 
         plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
             Map<Integer, Map<Integer, ItemStack>> loaded = new LinkedHashMap<>();
@@ -550,6 +558,7 @@ public class PageManager implements Reloadable {
                         data.cache.put(entry.getKey(), entry.getValue());
                     }
                 }
+                onComplete.run();
             });
         });
     }
@@ -617,11 +626,20 @@ public class PageManager implements Reloadable {
 
     private int tryPlaceInCachedPagesEmpty(UUID uuid, ItemStack item, int remaining,
                                            PlayerPageData data, int prevSlot, int nextSlot) {
-        int maxPageToCheck = Math.min(data.maxPage + 1, getEffectiveMaxPages() - 1);
+        int maxPageToCheck = getEffectiveMaxPages() - 1;
         for (int page = 0; page <= maxPageToCheck && remaining > 0; page++) {
             if (page == data.currentPage) continue;
             Map<Integer, ItemStack> pageItems = data.cache.get(page);
-            if (pageItems == null) continue;
+            if (pageItems == null) {
+                if (page > data.maxPage) {
+                    // 新页面（DB 中不存在），直接创建空缓存条目
+                    data.cache.put(page, new HashMap<>());
+                    pageItems = data.cache.get(page);
+                    if (pageItems == null) continue; // 缓存满，被驱逐
+                } else {
+                    continue; // 已有页面但不在缓存中（被驱逐），跳过
+                }
+            }
 
             Set<Integer> occupied = pageItems.keySet();
             boolean hasEmpty = false;

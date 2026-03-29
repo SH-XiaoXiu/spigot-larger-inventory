@@ -58,6 +58,7 @@ public final class MessageKeys {
         public static final String BYPASS_ENABLED_HINT_2 = "command.bypass.enabled-hint-2";
         public static final String BYPASS_DISABLED = "command.bypass.disabled";
         public static final String BYPASS_SLOT_NOT_EMPTY = "command.bypass.slot-not-empty";
+
         private Command() {
         }
     }
@@ -74,6 +75,7 @@ public final class MessageKeys {
         public static final String NAV_PAGE_INFO = "handover.nav.page-info";
         public static final String NAV_PREV_NAME = "handover.nav.prev-name";
         public static final String NAV_NEXT_NAME = "handover.nav.next-name";
+
         private Handover() {
         }
     }
@@ -83,6 +85,7 @@ public final class MessageKeys {
         public static final String ITEMS_PENDING = "player.items-pending";
         public static final String RETRIEVE_HINT = "player.retrieve-hint";
         public static final String CREATIVE_OVERFLOW = "player.creative-overflow";
+
         private Player() {
         }
     }
@@ -100,6 +103,7 @@ public final class MessageKeys {
         public static final String NEXT_LORE_MAX = "button.next.lore.max";
         public static final String NEXT_LORE_CLICK = "button.next.lore.click";
         public static final String NEXT_LORE_CANNOT = "button.next.lore.cannot";
+
         private Button() {
         }
     }
@@ -145,6 +149,7 @@ public final class MessageKeys {
         public static final String HANDOVER_DESTROYED = "log.handover.destroyed";
         public static final String HANDOVER_AUTO_DESTROYED = "log.handover.auto-destroyed";
         public static final String HANDOVER_STATUS_CHECK_FAILED = "log.handover.status-check-failed";
+
         private Log() {
         }
     }
