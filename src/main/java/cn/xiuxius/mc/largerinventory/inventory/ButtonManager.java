@@ -43,7 +43,7 @@ public class ButtonManager {
      * @return 按钮物品
      */
     public ItemStack createPrevButton(int currentPage, boolean canPrev) {
-        Material material = canPrev ? configManager.getPrevButtonMaterial() : Material.GRAY_STAINED_GLASS_PANE;
+        Material material = canPrev ? configManager.getConfig().getPrevButtonMaterial() : Material.GRAY_STAINED_GLASS_PANE;
         ItemStack button = new ItemStack(material);
         ItemMeta meta = button.getItemMeta();
         if (meta != null) {
@@ -84,7 +84,7 @@ public class ButtonManager {
      * @return 按钮物品
      */
     public ItemStack createNextButton(int currentPage, int maxPage, boolean canNext) {
-        Material material = canNext ? configManager.getNextButtonMaterial() : Material.GRAY_STAINED_GLASS_PANE;
+        Material material = canNext ? configManager.getConfig().getNextButtonMaterial() : Material.GRAY_STAINED_GLASS_PANE;
         ItemStack button = new ItemStack(material);
         ItemMeta meta = button.getItemMeta();
         if (meta != null) {

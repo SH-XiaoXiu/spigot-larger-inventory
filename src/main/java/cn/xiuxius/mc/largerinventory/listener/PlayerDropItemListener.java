@@ -1,6 +1,7 @@
 package cn.xiuxius.mc.largerinventory.listener;
 
 import cn.xiuxius.mc.largerinventory.config.ConfigManager;
+import cn.xiuxius.mc.largerinventory.config.PluginConfig;
 import cn.xiuxius.mc.largerinventory.inventory.ButtonManager;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -33,8 +34,9 @@ public class PlayerDropItemListener implements Listener {
         if (!buttonManager.isButton(dropped)) return;
 
         // 检查按钮槽是否因本次丢弃而变空（说明是从按钮槽丢出的）
-        ItemStack prev = player.getInventory().getItem(configManager.getPrevButtonSlot());
-        ItemStack next = player.getInventory().getItem(configManager.getNextButtonSlot());
+        PluginConfig cfg = configManager.getConfig();
+        ItemStack prev = player.getInventory().getItem(cfg.getPrevButtonSlot());
+        ItemStack next = player.getInventory().getItem(cfg.getNextButtonSlot());
         boolean prevMissing = prev == null || prev.getType().isAir() || !buttonManager.isButton(prev);
         boolean nextMissing = next == null || next.getType().isAir() || !buttonManager.isButton(next);
 

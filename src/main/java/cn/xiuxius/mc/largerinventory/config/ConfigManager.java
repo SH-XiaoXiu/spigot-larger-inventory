@@ -1,186 +1,77 @@
 package cn.xiuxius.mc.largerinventory.config;
 
-import org.bukkit.ChatColor;
-import org.bukkit.Material;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
- * 配置管理器
- * 负责加载、验证和提供配置项
+ * 配置管理器：负责加载、校验、热更新配置文件，维护当前 {@link PluginConfig} 实例。
+ *
+ * <h3>热更新规范</h3>
+ * 业务代码持有 {@code ConfigManager} 引用，访问配置时调用 {@link #getConfig()} 取得最新实例，
+ * 严禁将 {@code PluginConfig} 缓存为字段。
  */
 public class ConfigManager {
 
     private final JavaPlugin plugin;
-    private String language;
-    private int prevButtonSlot;
-    private int nextButtonSlot;
-    private Material prevButtonMaterial;
-    private Material nextButtonMaterial;
-    private String prevButtonName;
-    private String nextButtonName;
-    private int maxPages;
-    private int backupRetentionDays;
-    private int autoSaveIntervalSeconds;
-    private boolean crossPagePickup;
-    private boolean crossPageDeathDrop;
+    private PluginConfig config;
 
     public ConfigManager(JavaPlugin plugin) {
         this.plugin = plugin;
     }
 
     /**
-     * 加载配置
+     * 启动时调用：保存默认配置并解析。不执行校验。
      */
     public void load() {
         plugin.saveDefaultConfig();
         plugin.reloadConfig();
-
-        FileConfiguration config = plugin.getConfig();
-
-        // 语言设置
-        language = config.getString("language", "zh_CN");
-
-        // 按钮位置
-        prevButtonSlot = config.getInt("buttons.prev-page-slot", 27);
-        nextButtonSlot = config.getInt("buttons.next-page-slot", 35);
-
-        // 按钮外观
-        prevButtonMaterial = Material.matchMaterial(config.getString("buttons.prev-material", "ARROW"));
-        nextButtonMaterial = Material.matchMaterial(config.getString("buttons.next-material", "ARROW"));
-        prevButtonName = ChatColor.translateAlternateColorCodes('&', config.getString("buttons.prev-name", "&6◀ 上一页"));
-        nextButtonName = ChatColor.translateAlternateColorCodes('&', config.getString("buttons.next-name", "&6下一页 ▶"));
-
-        // 分页限制
-        maxPages = config.getInt("limits.max-pages", 0);
-
-        // 数据保护
-        backupRetentionDays = config.getInt("data.backup-retention-days", 7);
-        autoSaveIntervalSeconds = config.getInt("data.auto-save-interval-seconds", 300);
-
-        // 跨页拾取
-        crossPagePickup = config.getBoolean("features.cross-page-pickup", true);
-        // 跨页死亡掉落
-        crossPageDeathDrop = config.getBoolean("features.cross-page-death-drop", true);
+        config = PluginConfig.from(plugin.getConfig());
     }
 
     /**
-     * 验证按钮槽位配置是否有效
-     *
-     * @return 验证结果
+     * 热更新：从磁盘重新读取并校验配置。
+     * 若新配置有效则原子替换当前实例，返回 {@code true}；
+     * 若无效则保留旧配置，返回 {@code false}。
      */
-    public boolean validateButtonSlots() {
-        // 必须在背包范围内(0-35)
-        // 不能在快捷栏(0-8)
-        // 两个按钮不能相同
-        if (prevButtonSlot < 9 || prevButtonSlot > 35) {
-            plugin.getLogger().warning("上一页按钮位置无效: " + prevButtonSlot + "，必须在9-35范围内");
+    public boolean reload() {
+        plugin.reloadConfig();
+        PluginConfig candidate = PluginConfig.from(plugin.getConfig());
+        if (!validate(candidate)) {
             return false;
         }
-        if (nextButtonSlot < 9 || nextButtonSlot > 35) {
-            plugin.getLogger().warning("下一页按钮位置无效: " + nextButtonSlot + "，必须在9-35范围内");
+        config = candidate;
+        return true;
+    }
+
+    /**
+     * 校验当前配置，无效时记录警告日志。
+     *
+     * @return 配置有效返回 {@code true}
+     */
+    public boolean validate() {
+        return validate(config);
+    }
+
+    private boolean validate(PluginConfig cfg) {
+        if (cfg.getPrevButtonSlot() < 9 || cfg.getPrevButtonSlot() > 35) {
+            plugin.getLogger().warning("上一页按钮位置无效: " + cfg.getPrevButtonSlot() + "，必须在9-35范围内");
             return false;
         }
-        if (prevButtonSlot == nextButtonSlot) {
-            plugin.getLogger().warning("两个按钮位置不能相同: " + prevButtonSlot);
+        if (cfg.getNextButtonSlot() < 9 || cfg.getNextButtonSlot() > 35) {
+            plugin.getLogger().warning("下一页按钮位置无效: " + cfg.getNextButtonSlot() + "，必须在9-35范围内");
+            return false;
+        }
+        if (cfg.getPrevButtonSlot() == cfg.getNextButtonSlot()) {
+            plugin.getLogger().warning("两个按钮位置不能相同: " + cfg.getPrevButtonSlot());
             return false;
         }
         return true;
     }
 
     /**
-     * 获取上一页按钮槽位
+     * 返回当前配置实例。
+     * 调用方每次均应重新调用此方法，不得将返回值缓存为字段。
      */
-    public int getPrevButtonSlot() {
-        return prevButtonSlot;
-    }
-
-    /**
-     * 获取下一页按钮槽位
-     */
-    public int getNextButtonSlot() {
-        return nextButtonSlot;
-    }
-
-    /**
-     * 获取上一页按钮材质
-     */
-    public Material getPrevButtonMaterial() {
-        return prevButtonMaterial != null ? prevButtonMaterial : Material.ARROW;
-    }
-
-    /**
-     * 获取下一页按钮材质
-     */
-    public Material getNextButtonMaterial() {
-        return nextButtonMaterial != null ? nextButtonMaterial : Material.ARROW;
-    }
-
-    /**
-     * 获取上一页按钮名称
-     */
-    public String getPrevButtonName() {
-        return prevButtonName;
-    }
-
-    /**
-     * 获取下一页按钮名称
-     */
-    public String getNextButtonName() {
-        return nextButtonName;
-    }
-
-    /**
-     * 获取最大页数限制
-     *
-     * @return 0表示无限制
-     */
-    public int getMaxPages() {
-        return maxPages;
-    }
-
-    /**
-     * 获取备份保留天数
-     */
-    public int getBackupRetentionDays() {
-        return backupRetentionDays;
-    }
-
-    /**
-     * 获取自动保存间隔（秒）
-     */
-    public int getAutoSaveIntervalSeconds() {
-        return autoSaveIntervalSeconds;
-    }
-
-    /**
-     * 获取语言设置
-     */
-    public String getLanguage() {
-        return language;
-    }
-
-    /**
-     * 是否启用跨页拾取
-     */
-    public boolean isCrossPagePickup() {
-        return crossPagePickup;
-    }
-
-    /**
-     * 是否启用跨页死亡掉落
-     */
-    public boolean isCrossPageDeathDrop() {
-        return crossPageDeathDrop;
-    }
-
-    /**
-     * 检查槽位是否为按钮位置
-     *
-     * @param slot 槽位索引
-     * @return 是否为按钮位置
-     */
-    public boolean isButtonSlot(int slot) {
-        return slot == prevButtonSlot || slot == nextButtonSlot;
+    public PluginConfig getConfig() {
+        return config;
     }
 }

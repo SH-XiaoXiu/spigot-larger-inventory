@@ -116,7 +116,8 @@ public class HandoverContainerListener implements Listener {
         }
 
         // 拖拽操作涉及交接容器，检查是否有物品要放入
-        if (event.getOldCursor() != null && !event.getOldCursor().getType().isAir()) {
+        event.getOldCursor();
+        if (!event.getOldCursor().getType().isAir()) {
             // 玩家试图拖拽物品到交接容器
             event.setCancelled(true);
         }

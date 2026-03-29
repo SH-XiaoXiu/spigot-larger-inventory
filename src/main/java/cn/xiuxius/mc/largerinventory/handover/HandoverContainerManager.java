@@ -1,6 +1,6 @@
 package cn.xiuxius.mc.largerinventory.handover;
 
-import cn.xiuxius.mc.largerinventory.database.PlayerInventoryDAO;
+import cn.xiuxius.mc.largerinventory.database.HandoverDAO;
 import cn.xiuxius.mc.largerinventory.i18n.MessageKeys;
 import cn.xiuxius.mc.largerinventory.i18n.MessageManager;
 import org.bukkit.Bukkit;
@@ -34,7 +34,7 @@ public class HandoverContainerManager {
 
     private final JavaPlugin plugin;
     private final MessageManager messageManager;
-    private final PlayerInventoryDAO dao;
+    private final HandoverDAO dao;
     // 玩家打开的交接容器缓存
     private final Map<UUID, Inventory> openContainers;
     // displaySlot(0-44) -> dbSlot(slot_index in DB)，每个玩家一张映射表
@@ -42,7 +42,7 @@ public class HandoverContainerManager {
     // 每个玩家当前在交接容器的第几页（0-indexed）
     private final Map<UUID, Integer> playerCurrentPage;
 
-    public HandoverContainerManager(JavaPlugin plugin, MessageManager messageManager, PlayerInventoryDAO dao) {
+    public HandoverContainerManager(JavaPlugin plugin, MessageManager messageManager, HandoverDAO dao) {
         this.plugin = plugin;
         this.messageManager = messageManager;
         this.dao = dao;
@@ -72,7 +72,7 @@ public class HandoverContainerManager {
         }
 
         try {
-            dao.createHandoverItems(uuid, items);
+            dao.append(uuid, items);
             plugin.getLogger().info(messageManager.getLog(MessageKeys.Log.HANDOVER_CREATED, "player", playerName, "count", items.size()));
             return true;
         } catch (SQLException e) {
@@ -101,12 +101,12 @@ public class HandoverContainerManager {
     public boolean openContainer(Player player, int page) {
         UUID uuid = player.getUniqueId();
         try {
-            if (dao.isHandoverContainerEmpty(uuid)) {
+            if (dao.isEmpty(uuid)) {
                 player.sendMessage(messageManager.get(MessageKeys.Handover.NO_ITEMS));
                 return false;
             }
 
-            Map<Integer, ItemStack> allItemsMap = dao.loadHandoverItems(uuid);
+            Map<Integer, ItemStack> allItemsMap = dao.load(uuid);
             List<Map.Entry<Integer, ItemStack>> sortedEntries = new ArrayList<>(allItemsMap.entrySet());
             sortedEntries.sort(Comparator.comparingInt(Map.Entry::getKey));
 
@@ -212,12 +212,12 @@ public class HandoverContainerManager {
         try {
             Map<Integer, Integer> playerSlotMap = slotMapping.get(uuid);
             if (playerSlotMap == null) {
-                dao.removeHandoverItem(uuid, rawSlot); // 兜底
+                dao.remove(uuid, rawSlot); // 兜底
                 return;
             }
             Integer dbSlot = playerSlotMap.get(rawSlot);
             if (dbSlot == null) return;
-            dao.removeHandoverItem(uuid, dbSlot);
+            dao.remove(uuid, dbSlot);
             playerSlotMap.remove(rawSlot);
             plugin.getLogger().fine(messageManager.getLog(MessageKeys.Log.HANDOVER_ITEM_TAKEN, "player", player.getName(), "slot", rawSlot));
         } catch (SQLException e) {
@@ -233,7 +233,7 @@ public class HandoverContainerManager {
      */
     public boolean isContainerEmpty(Player player) {
         try {
-            return dao.isHandoverContainerEmpty(player.getUniqueId());
+            return dao.isEmpty(player.getUniqueId());
         } catch (SQLException e) {
             return true;
         }
@@ -247,7 +247,7 @@ public class HandoverContainerManager {
     public void destroyContainer(Player player) {
         UUID uuid = player.getUniqueId();
         try {
-            dao.destroyHandoverContainer(uuid);
+            dao.clear(uuid);
             openContainers.remove(uuid);
             slotMapping.remove(uuid);
             playerCurrentPage.remove(uuid);
@@ -270,8 +270,8 @@ public class HandoverContainerManager {
 
         // 检查是否为空
         try {
-            if (dao.isHandoverContainerEmpty(uuid)) {
-                dao.destroyHandoverContainer(uuid);
+            if (dao.isEmpty(uuid)) {
+                dao.clear(uuid);
                 playerCurrentPage.remove(uuid);
                 plugin.getLogger().info(messageManager.getLog(MessageKeys.Log.HANDOVER_AUTO_DESTROYED, "player", player.getName()));
             }
@@ -288,7 +288,7 @@ public class HandoverContainerManager {
      */
     public boolean hasContainer(UUID uuid) {
         try {
-            return !dao.isHandoverContainerEmpty(uuid);
+            return !dao.isEmpty(uuid);
         } catch (SQLException e) {
             return false;
         }
@@ -302,7 +302,7 @@ public class HandoverContainerManager {
      */
     public int getContainerItemCount(UUID uuid) {
         try {
-            Map<Integer, ItemStack> items = dao.loadHandoverItems(uuid);
+            Map<Integer, ItemStack> items = dao.load(uuid);
             return items.size();
         } catch (SQLException e) {
             return 0;

@@ -1,6 +1,7 @@
 package cn.xiuxius.mc.largerinventory.inventory;
 
 import cn.xiuxius.mc.largerinventory.config.ConfigManager;
+import cn.xiuxius.mc.largerinventory.config.PluginConfig;
 import org.bukkit.entity.Player;
 
 import java.util.HashSet;
@@ -27,8 +28,9 @@ public class BypassManager {
     public void enterBypass(Player player, ConfigManager configManager) {
         bypassPlayers.add(player.getUniqueId());
         // 清空按钮槽，给玩家空位可用
-        player.getInventory().setItem(configManager.getPrevButtonSlot(), null);
-        player.getInventory().setItem(configManager.getNextButtonSlot(), null);
+        PluginConfig cfg = configManager.getConfig();
+        player.getInventory().setItem(cfg.getPrevButtonSlot(), null);
+        player.getInventory().setItem(cfg.getNextButtonSlot(), null);
         player.updateInventory();
     }
 
@@ -38,8 +40,9 @@ public class BypassManager {
      * @return true 表示退出成功；false 表示按钮槽有物品，需玩家先移走
      */
     public boolean exitBypass(Player player, PageManager pageManager, ConfigManager configManager) {
-        var prev = player.getInventory().getItem(configManager.getPrevButtonSlot());
-        var next = player.getInventory().getItem(configManager.getNextButtonSlot());
+        PluginConfig cfg = configManager.getConfig();
+        var prev = player.getInventory().getItem(cfg.getPrevButtonSlot());
+        var next = player.getInventory().getItem(cfg.getNextButtonSlot());
         if ((prev != null && !prev.getType().isAir()) || (next != null && !next.getType().isAir())) {
             return false;
         }

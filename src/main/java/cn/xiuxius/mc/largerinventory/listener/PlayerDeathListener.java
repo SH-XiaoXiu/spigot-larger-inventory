@@ -43,7 +43,7 @@ public class PlayerDeathListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPlayerDeath(org.bukkit.event.entity.PlayerDeathEvent event) {
         // 检查功能是否启用
-        if (!configManager.isCrossPageDeathDrop()) {
+        if (!configManager.getConfig().isCrossPageDeathDrop()) {
             return;
         }
 
@@ -52,7 +52,7 @@ public class PlayerDeathListener implements Listener {
         UUID uuid = player.getUniqueId();
 
         // 检查游戏规则：如果保持物品，则无需处理
-        if (world.getGameRuleValue(GameRule.KEEP_INVENTORY)) {
+        if (Boolean.TRUE.equals(world.getGameRuleValue(GameRule.KEEP_INVENTORY))) {
             return;
         }
 

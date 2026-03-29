@@ -1,6 +1,7 @@
 package cn.xiuxius.mc.largerinventory.listener;
 
 import cn.xiuxius.mc.largerinventory.config.ConfigManager;
+import cn.xiuxius.mc.largerinventory.config.PluginConfig;
 import cn.xiuxius.mc.largerinventory.inventory.ButtonManager;
 import cn.xiuxius.mc.largerinventory.inventory.PageManager;
 import org.bukkit.Sound;
@@ -19,7 +20,10 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
-import java.util.*;
+import java.util.Collection;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -33,7 +37,6 @@ public class PlayerPickupItemListener implements Listener {
     private final JavaPlugin plugin;
     private final ConfigManager configManager;
     private final PageManager pageManager;
-    private final ButtonManager buttonManager;
 
     // 玩家的定时任务
     private final Map<UUID, BukkitTask> playerTasks = new ConcurrentHashMap<>();
@@ -45,11 +48,10 @@ public class PlayerPickupItemListener implements Listener {
     private static final long CHECK_INTERVAL_TICKS = 10L; // 0.5秒检查一次
     private static final long ANIMATION_DELAY_TICKS = 5L; // 动画持续时间
 
-    public PlayerPickupItemListener(JavaPlugin plugin, ConfigManager configManager, PageManager pageManager, ButtonManager buttonManager) {
+    public PlayerPickupItemListener(JavaPlugin plugin, ConfigManager configManager, PageManager pageManager, @Deprecated ButtonManager ignored) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.pageManager = pageManager;
-        this.buttonManager = buttonManager;
     }
 
     /**
@@ -57,7 +59,7 @@ public class PlayerPickupItemListener implements Listener {
      */
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        if (!configManager.isCrossPagePickup()) return;
+        if (!configManager.getConfig().isCrossPagePickup()) return;
         startPickupCheckTask(event.getPlayer());
     }
 
@@ -74,7 +76,7 @@ public class PlayerPickupItemListener implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerPickupItem(EntityPickupItemEvent event) {
-        if (!configManager.isCrossPagePickup()) return;
+        if (!configManager.getConfig().isCrossPagePickup()) return;
         if (!(event.getEntity() instanceof Player player)) return;
 
         // 拾取后检查是否有附近物品需要处理
@@ -118,7 +120,7 @@ public class PlayerPickupItemListener implements Listener {
 
         // 检查玩家是否正在切换页面
         PageManager.PlayerPageData data = pageManager.getPlayerData(player.getUniqueId());
-        if (data == null || data.switching) return;
+        if (data == null || data.isSwitching()) return;
 
         // 获取玩家附近的物品实体
         Collection<Entity> nearbyEntities = player.getNearbyEntities(PICKUP_RANGE, PICKUP_RANGE, PICKUP_RANGE);
@@ -130,7 +132,7 @@ public class PlayerPickupItemListener implements Listener {
             if (itemEntity.getPickupDelay() > 0) continue;
 
             ItemStack itemStack = itemEntity.getItemStack();
-            if (itemStack == null || itemStack.getType().isAir()) continue;
+            if (itemStack.getType().isAir()) continue;
 
             // 尝试拾取并跨页存放
             tryPickupCrossPage(player, itemEntity, itemStack);
@@ -148,10 +150,10 @@ public class PlayerPickupItemListener implements Listener {
             return;
         }
 
-        int totalAmount = pickupItem.getAmount();
         int maxStack = pickupItem.getMaxStackSize();
-        int prevSlot = configManager.getPrevButtonSlot();
-        int nextSlot = configManager.getNextButtonSlot();
+        PluginConfig cfg = configManager.getConfig();
+        int prevSlot = cfg.getPrevButtonSlot();
+        int nextSlot = cfg.getNextButtonSlot();
 
         // 计算当前背包（含快捷栏）能容纳多少
         int canHold = calculateCanHold(player, pickupItem, maxStack, prevSlot, nextSlot);
@@ -174,11 +176,13 @@ public class PlayerPickupItemListener implements Listener {
         // 3. 禁止物品被其他方式拾取
         itemEntity.setPickupDelay(9999);
 
-        // 4. 克隆物品数据（延迟后原物品可能已失效）
-        ItemStack itemToStore = pickupItem.clone();
-        int itemAmount = pickupItem.getAmount();
+        // 4. 触发异步预加载（利用动画时间窗口把目标页面装入缓存）
+        pageManager.preloadPagesForPickup(player);
 
-        // 5. 延迟后执行存储
+        // 5. 克隆物品数据（延迟后原物品可能已失效）
+        ItemStack itemToStore = pickupItem.clone();
+
+        // 6. 延迟后执行存储
         plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
             try {
                 // 检查物品是否还存在

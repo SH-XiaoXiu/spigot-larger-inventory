@@ -1,7 +1,9 @@
 package cn.xiuxius.mc.largerinventory.command;
 
 import cn.xiuxius.mc.largerinventory.config.ConfigManager;
-import cn.xiuxius.mc.largerinventory.database.PlayerInventoryDAO;
+import cn.xiuxius.mc.largerinventory.config.PluginConfig;
+import cn.xiuxius.mc.largerinventory.database.PageItemDAO;
+import cn.xiuxius.mc.largerinventory.database.PlayerMetaDAO;
 import cn.xiuxius.mc.largerinventory.database.model.PlayerMeta;
 import cn.xiuxius.mc.largerinventory.handover.HandoverContainerManager;
 import cn.xiuxius.mc.largerinventory.i18n.MessageKeys;
@@ -32,18 +34,20 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
     private final JavaPlugin plugin;
     private final ConfigManager configManager;
     private final MessageManager messageManager;
-    private final PlayerInventoryDAO dao;
+    private final PlayerMetaDAO metaDao;
+    private final PageItemDAO pageItemDao;
     private final PageManager pageManager;
     private final HandoverContainerManager handoverManager;
     private final BypassManager bypassManager;
 
     public AdminCommand(JavaPlugin plugin, ConfigManager configManager, MessageManager messageManager,
-                        PlayerInventoryDAO dao, PageManager pageManager,
+                        PlayerMetaDAO metaDao, PageItemDAO pageItemDao, PageManager pageManager,
                         HandoverContainerManager handoverManager, BypassManager bypassManager) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.messageManager = messageManager;
-        this.dao = dao;
+        this.metaDao = metaDao;
+        this.pageItemDao = pageItemDao;
         this.pageManager = pageManager;
         this.handoverManager = handoverManager;
         this.bypassManager = bypassManager;
@@ -87,7 +91,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        int configMaxPages = configManager.getMaxPages();
+        int configMaxPages = configManager.getConfig().getMaxPages();
         if (configMaxPages <= 0) {
             sender.sendMessage(messageManager.get(MessageKeys.Command.FORCERESET_NO_LIMIT));
             return true;
@@ -106,7 +110,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
                 String playerName = offlinePlayer.getName() != null ? offlinePlayer.getName() : uuid.toString();
 
                 try {
-                    PlayerMeta meta = dao.getPlayerMeta(uuid);
+                    PlayerMeta meta = metaDao.getByUUID(uuid);
                     if (meta == null) {
                         continue;
                     }
@@ -151,14 +155,14 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
      * @return 超出物品数量
      */
     private int resetPlayerInventory(UUID uuid, String playerName, int configMaxPages) throws SQLException {
-        PlayerMeta meta = dao.getPlayerMeta(uuid);
+        PlayerMeta meta = metaDao.getByUUID(uuid);
         if (meta == null) {
             return 0;
         }
         int maxPage = meta.getMaxPage();
 
         // 加载所有物品
-        Map<Integer, Map<Integer, ItemStack>> allItems = dao.loadAllItems(uuid);
+        Map<Integer, Map<Integer, ItemStack>> allItems = pageItemDao.loadAll(uuid);
 
         // 计算限制内的总容量
         int slotsPerPage = 36 - 2;
@@ -186,8 +190,9 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         }
 
         // 重新分配物品到限制内的页
-        int prevSlot = configManager.getPrevButtonSlot();
-        int nextSlot = configManager.getNextButtonSlot();
+        PluginConfig cfg = configManager.getConfig();
+        int prevSlot = cfg.getPrevButtonSlot();
+        int nextSlot = cfg.getNextButtonSlot();
 
         for (int page = 0; page < configMaxPages; page++) {
             Map<Integer, ItemStack> pageItems = new HashMap<>();
@@ -204,15 +209,15 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
                 slot++;
             }
 
-            dao.savePageItems(uuid, page, pageItems);
+            pageItemDao.savePage(uuid, page, pageItems);
         }
 
         // 删除超出页的数据
-        dao.deletePagesFrom(uuid, configMaxPages);
+        pageItemDao.deleteFrom(uuid, configMaxPages);
 
         // 更新玩家元数据
         int newMaxPage = Math.min(maxPage, configMaxPages - 1);
-        dao.updatePlayerMeta(uuid, 0, newMaxPage);
+        metaDao.update(uuid, 0, newMaxPage);
 
         // 如果有超出物品，创建交接容器（纯数据库操作）
         if (!overflowItems.isEmpty()) {
@@ -266,14 +271,13 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        configManager.load();
-        if (!configManager.validateButtonSlots()) {
+        if (!configManager.reload()) {
             sender.sendMessage(messageManager.get(MessageKeys.Command.RELOAD_VALIDATION_FAILED));
             return true;
         }
 
         // 重载语言文件（支持语言切换）
-        messageManager.setLocale(configManager.getLanguage());
+        messageManager.setLocale(configManager.getConfig().getLanguage());
         messageManager.reload();
 
         sender.sendMessage(messageManager.get(MessageKeys.Command.RELOAD_SUCCESS));
@@ -335,7 +339,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
             } else {
                 // 从数据库查找
                 try {
-                    PlayerMeta meta = dao.getPlayerMetaByName(args[1]);
+                    PlayerMeta meta = metaDao.getByName(args[1]);
                     if (meta == null) {
                         sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_PLAYER_NOT_FOUND, "player", args[1]));
                         return true;
@@ -356,14 +360,14 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         }
 
         try {
-            PlayerMeta meta = dao.getPlayerMeta(uuid);
+            PlayerMeta meta = metaDao.getByUUID(uuid);
             if (meta == null) {
                 sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_DATA_NOT_FOUND, "player", playerName));
                 return true;
             }
             int currentPage = meta.getCurrentPage();
             int maxPage = meta.getMaxPage();
-            int configMaxPages = configManager.getMaxPages();
+            int configMaxPages = configManager.getConfig().getMaxPages();
 
             sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_TITLE));
             sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_PLAYER, "player", playerName));
@@ -378,7 +382,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
             }
 
             // 计算物品数量
-            Map<Integer, Map<Integer, ItemStack>> allItems = dao.loadAllItems(uuid);
+            Map<Integer, Map<Integer, ItemStack>> allItems = pageItemDao.loadAll(uuid);
             int totalItems = 0;
             for (Map<Integer, ItemStack> pageItems : allItems.values()) {
                 totalItems += pageItems.size();
