@@ -16,6 +16,9 @@
 
 - **分页背包** - 将玩家背包扩展为最多 99 页，远超原版 27 格限制
 - **翻页按钮** - 直观的上一页/下一页按钮，支持自定义位置和外观
+- **跨页拾取** - 当背包页满时自动将物品存放到其他页，无需手动翻页
+- **跨页死亡掉落** - 死亡时所有页面的物品都会掉落（与游戏规则 keepInventory 同步）
+- **热更新** - 支持 `/li reload` 热更新配置，无需重启服务器
 - **自动保存** - 定时将数据持久化到 SQLite 数据库
 - **交接容器** - 页数满时物品自动转入交接容器，防止丢失
 - **懒加载** - 仅加载当前页数据，减少内存占用
@@ -53,6 +56,11 @@ buttons:
 # 分页限制 (0 = 使用最大限制 99 页)
 limits:
   max-pages: 0
+
+# 功能开关
+features:
+  cross-page-pickup: true        # 跨页拾取
+  cross-page-death-drop: true    # 跨页死亡掉落
 
 # 数据保护
 data:
@@ -117,6 +125,9 @@ A Minecraft Spigot plugin that extends player inventory capacity through a pagin
 
 - **Paged Inventory** - Expand player inventory up to 99 pages, far beyond the vanilla 27-slot limit
 - **Page Navigation Buttons** - Intuitive previous/next page buttons with customizable position and appearance
+- **Cross-page Pickup** - Automatically store items to other pages when current page is full
+- **Cross-page Death Drop** - Items from all pages drop on death (syncs with keepInventory game rule)
+- **Hot Reload** - Support `/li reload` to update configuration without server restart
 - **Auto-save** - Periodically persist data to SQLite database
 - **Handover Container** - Items automatically transfer to handover container when pages are full, preventing item loss
 - **Lazy Loading** - Only load current page data to reduce memory usage
@@ -154,6 +165,11 @@ buttons:
 # Page limits (0 = use maximum limit of 99 pages)
 limits:
   max-pages: 0
+
+# Feature toggles
+features:
+  cross-page-pickup: true        # Cross-page pickup
+  cross-page-death-drop: true    # Cross-page death drop
 
 # Data protection
 data:

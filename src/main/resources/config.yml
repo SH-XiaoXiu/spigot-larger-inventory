@@ -1,32 +1,36 @@
-# 语言设置
+# 语言设置 / Language settings
 # 语言选项: zh_CN (简体中文), en_US (English)
 language: zh_CN
 
-# 按钮设置
+# 按钮设置 / Button settings
 buttons:
   # 位置范围: 9-35（快捷栏为0-8，不允许放置按钮）
+  # Slot range: 9-35 (hotbar is 0-8, buttons not allowed)
   prev-page-slot: 27
   next-page-slot: 35
 
-  # 按钮外观
+  # 按钮外观 / Button appearance
   prev-material: "ARROW"
   next-material: "ARROW"
   prev-name: "&6◀ 上一页"
   next-name: "&6下一页 ▶"
 
-# 分页限制
+# 分页限制 / Page limits
 limits:
-  # 0表示使用插件最大限制 (99页)
+  # 0表示使用插件最大限制 (99页) / 0 = use maximum limit (99 pages)
   max-pages: 0
 
-# 功能开关
+# 功能开关 / Feature toggles
 features:
   # 跨页拾取：当背包页满时自动将物品存放到其他页
+  # Cross-page pickup: automatically store items to other pages when current page is full
   cross-page-pickup: true
+
   # 跨页死亡掉落：死亡时所有页面的物品都会掉落（与游戏规则 keepInventory 同步）
+  # Cross-page death drop: items from all pages drop on death (syncs with keepInventory game rule)
   cross-page-death-drop: true
 
-# 数据保护
+# 数据保护 / Data protection
 data:
   backup-retention-days: 7
   auto-save-interval-seconds: 300
