@@ -173,6 +173,10 @@ public final class LargerInventory extends JavaPlugin implements Reloadable {
         // 跨页死亡掉落监听器
         getServer().getPluginManager().registerEvents(
                 new PlayerDeathListener(configManager, pageManager, buttonManager), this);
+
+        // 按钮物品消耗保护（弓射箭、食用、右键使用等）
+        getServer().getPluginManager().registerEvents(
+                new PlayerItemUseListener(configManager, buttonManager, pageManager, this), this);
     }
 
     /**
