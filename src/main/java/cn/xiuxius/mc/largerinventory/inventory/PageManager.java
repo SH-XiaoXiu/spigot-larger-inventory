@@ -552,10 +552,11 @@ public class PageManager implements Reloadable {
                 }
             }
             plugin.getServer().getScheduler().runTask(plugin, () -> {
-                if (!player.isOnline()) return;
-                for (Map.Entry<Integer, Map<Integer, ItemStack>> entry : loaded.entrySet()) {
-                    if (data.cache.get(entry.getKey()) == null) {
-                        data.cache.put(entry.getKey(), entry.getValue());
+                if (player.isOnline()) {
+                    for (Map.Entry<Integer, Map<Integer, ItemStack>> entry : loaded.entrySet()) {
+                        if (data.cache.get(entry.getKey()) == null) {
+                            data.cache.put(entry.getKey(), entry.getValue());
+                        }
                     }
                 }
                 onComplete.run();

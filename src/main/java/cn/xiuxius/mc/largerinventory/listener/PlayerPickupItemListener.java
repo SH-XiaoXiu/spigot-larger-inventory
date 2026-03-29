@@ -24,7 +24,6 @@ import org.bukkit.util.Vector;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * 跨页拾取监听器
@@ -163,10 +162,10 @@ public class PlayerPickupItemListener implements Listener, Reloadable {
             return;
         }
 
-        // 克隆物品数据（延迟后原物品可能已失效）
-        ItemStack itemToStore = pickupItem.clone();
+        // 禁止物品被其他方式拾取
+        itemEntity.setPickupDelay(9999);
 
-        // 设置初始飞行速度（目标为玩家身体中心偏上，模拟原版）
+        // 飞行动画（纯视觉，不阻塞存储逻辑）
         Vector toPlayer = player.getLocation().add(0, 0.5, 0)
                 .toVector().subtract(itemEntity.getLocation().toVector());
         double distance = toPlayer.length();
@@ -175,10 +174,6 @@ public class PlayerPickupItemListener implements Listener, Reloadable {
         }
         itemEntity.setVelocity(toPlayer);
 
-        // 禁止物品被其他方式拾取
-        itemEntity.setPickupDelay(9999);
-
-        // 持续更新速度模拟原版加速效果（每 2 tick 一次）
         int updateCount = (int) (ANIMATION_DELAY_TICKS / VELOCITY_UPDATE_INTERVAL);
         for (int i = 1; i <= updateCount; i++) {
             final int updateIndex = i;
@@ -190,25 +185,9 @@ public class PlayerPickupItemListener implements Listener, Reloadable {
             }, i * VELOCITY_UPDATE_INTERVAL);
         }
 
-        // 使用双门闩模式：动画和预加载都完成后才执行存储
-        AtomicBoolean animationDone = new AtomicBoolean(false);
-        AtomicBoolean preloadDone = new AtomicBoolean(false);
-
-        Runnable tryStore = () -> {
-            if (!animationDone.get() || !preloadDone.get()) return;
-            doStore(player, itemEntity, itemToStore, itemUUID);
-        };
-
-        // 动画计时器
-        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-            animationDone.set(true);
-            tryStore.run();
-        }, ANIMATION_DELAY_TICKS);
-
-        // 异步预加载（利用动画时间窗口把目标页面装入缓存）
+        // 预加载完成后立即存储（不等待动画结束）
         pageManager.preloadPagesForPickup(player, () -> {
-            preloadDone.set(true);
-            tryStore.run();
+            doStore(player, itemEntity, itemUUID);
         });
     }
 
@@ -216,37 +195,51 @@ public class PlayerPickupItemListener implements Listener, Reloadable {
      * 执行实际的跨页存储逻辑。
      * 先尝试存储，成功后移除实体并播放音效；失败则恢复实体状态让下一轮重试。
      */
-    private void doStore(Player player, Item itemEntity, ItemStack itemToStore, UUID itemUUID) {
+    private void doStore(Player player, Item itemEntity, UUID itemUUID) {
         // 检查物品是否还存在（可能被 Paper 物品合并吸收）
         if (itemEntity.isDead()) {
-            // 实体已被合并到其他实体中，其物品由存活实体负责处理
             processingItems.remove(itemUUID);
             return;
         }
 
-        // 检查玩家是否正在切换页面
+        // 玩家数据不存在（已下线），恢复实体让其他玩家可拾取
         PageManager.PlayerPageData data = pageManager.getPlayerData(player.getUniqueId());
-        if (data == null || data.isSwitching()) {
+        if (data == null) {
+            itemEntity.setPickupDelay(0);
+            processingItems.remove(itemUUID);
+            return;
+        }
+
+        // 正在翻页，延迟重试
+        if (data.isSwitching()) {
             plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                doStore(player, itemEntity, itemToStore, itemUUID);
+                doStore(player, itemEntity, itemUUID);
             }, 20L);
             return;
         }
 
-        // 重新读取实体当前物品（动画期间 Paper 可能合并了其他实体，数量会变化）
-        ItemStack currentItem = itemEntity.getItemStack();
-        int remaining = pageManager.addItemAcrossPages(player, currentItem);
+        try {
+            // 重新读取实体当前物品（Paper 可能合并了其他实体，数量会变化）
+            ItemStack currentItem = itemEntity.getItemStack();
+            int remaining = pageManager.addItemAcrossPages(player, currentItem);
 
-        if (remaining > 0) {
-            currentItem.setAmount(remaining);
-            itemEntity.setItemStack(currentItem);
-            itemEntity.setPickupDelay(0);
-        } else {
-            itemEntity.remove();
-            player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP,
-                    0.2f, (float) (1.0 + Math.random() * 0.2));
+            if (remaining > 0) {
+                currentItem.setAmount(remaining);
+                itemEntity.setItemStack(currentItem);
+                itemEntity.setPickupDelay(0);
+            } else {
+                itemEntity.remove();
+                player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP,
+                        0.2f, (float) (1.0 + Math.random() * 0.2));
+            }
+        } catch (Exception e) {
+            plugin.getLogger().severe("跨页拾取存储异常: " + e.getMessage());
+            if (!itemEntity.isDead()) {
+                itemEntity.setPickupDelay(0);
+            }
+        } finally {
+            processingItems.remove(itemUUID);
         }
-        processingItems.remove(itemUUID);
     }
 
     /**
