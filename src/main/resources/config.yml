@@ -12,8 +12,6 @@ buttons:
   # 按钮外观 / Button appearance
   prev-material: "ARROW"
   next-material: "ARROW"
-  prev-name: "&6◀ 上一页"
-  next-name: "&6下一页 ▶"
 
 # 分页限制 / Page limits
 limits:

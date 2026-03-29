@@ -1,6 +1,5 @@
 package cn.xiuxius.mc.largerinventory.config;
 
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.configuration.file.FileConfiguration;
 
@@ -18,8 +17,6 @@ public final class PluginConfig {
     private final int nextButtonSlot;
     private final Material prevButtonMaterial;
     private final Material nextButtonMaterial;
-    private final String prevButtonName;
-    private final String nextButtonName;
     private final int maxPages;
     private final int backupRetentionDays;
     private final int autoSaveIntervalSeconds;
@@ -29,7 +26,6 @@ public final class PluginConfig {
     private PluginConfig(String language,
                          int prevButtonSlot, int nextButtonSlot,
                          Material prevButtonMaterial, Material nextButtonMaterial,
-                         String prevButtonName, String nextButtonName,
                          int maxPages, int backupRetentionDays, int autoSaveIntervalSeconds,
                          boolean crossPagePickup, boolean crossPageDeathDrop) {
         this.language = language;
@@ -37,8 +33,6 @@ public final class PluginConfig {
         this.nextButtonSlot = nextButtonSlot;
         this.prevButtonMaterial = prevButtonMaterial;
         this.nextButtonMaterial = nextButtonMaterial;
-        this.prevButtonName = prevButtonName;
-        this.nextButtonName = nextButtonName;
         this.maxPages = maxPages;
         this.backupRetentionDays = backupRetentionDays;
         this.autoSaveIntervalSeconds = autoSaveIntervalSeconds;
@@ -56,8 +50,6 @@ public final class PluginConfig {
                 cfg.getInt("buttons.next-page-slot", 35),
                 parseMaterial(cfg.getString("buttons.prev-material", "ARROW")),
                 parseMaterial(cfg.getString("buttons.next-material", "ARROW")),
-                color(cfg.getString("buttons.prev-name", "&6◀ 上一页")),
-                color(cfg.getString("buttons.next-name", "&6下一页 ▶")),
                 cfg.getInt("limits.max-pages", 0),
                 cfg.getInt("data.backup-retention-days", 7),
                 cfg.getInt("data.auto-save-interval-seconds", 300),
@@ -70,10 +62,6 @@ public final class PluginConfig {
         if (name == null) return Material.ARROW;
         Material m = Material.matchMaterial(name);
         return m != null ? m : Material.ARROW;
-    }
-
-    private static String color(String s) {
-        return s == null ? "" : ChatColor.translateAlternateColorCodes('&', s);
     }
 
     /**
@@ -101,14 +89,6 @@ public final class PluginConfig {
 
     public Material getNextButtonMaterial() {
         return nextButtonMaterial;
-    }
-
-    public String getPrevButtonName() {
-        return prevButtonName;
-    }
-
-    public String getNextButtonName() {
-        return nextButtonName;
     }
 
     public int getMaxPages() {
