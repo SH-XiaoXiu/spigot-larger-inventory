@@ -7,6 +7,7 @@
 
 ---
 <a name="中文"></a>
+
 ## 中文
 
 一个 Minecraft Spigot 插件，通过分页系统扩展玩家背包容量。
@@ -61,13 +62,13 @@ data:
 
 ### 命令
 
-| 命令 | 说明 | 权限 |
-|------|------|------|
-| `/li info [player]` | 查看玩家背包信息 | `largerinventory.admin` |
-| `/li forcereset` | 强制重置超出限制的背包 | `largerinventory.admin` |
-| `/li opencontainer [player]` | 打开交接容器 | `largerinventory.admin` |
-| `/li bypass` | 创造模式下临时解除按钮槽拦截 | `largerinventory.admin.bypass` |
-| `/li reload` | 重载配置文件 | `largerinventory.admin` |
+| 命令                           | 说明             | 权限                             |
+|------------------------------|----------------|--------------------------------|
+| `/li info [player]`          | 查看玩家背包信息       | `largerinventory.admin`        |
+| `/li forcereset`             | 强制重置超出限制的背包    | `largerinventory.admin`        |
+| `/li opencontainer [player]` | 打开交接容器         | `largerinventory.admin`        |
+| `/li bypass`                 | 创造模式下临时解除按钮槽拦截 | `largerinventory.admin.bypass` |
+| `/li reload`                 | 重载配置文件         | `largerinventory.admin`        |
 
 #### Bypass 模式
 
@@ -80,17 +81,17 @@ data:
 
 ### 权限
 
-| 权限节点 | 说明 | 默认 |
-|----------|------|------|
-| `largerinventory.use` | 使用扩展背包功能 | 玩家 |
-| `largerinventory.player.opencontainer` | 打开自己的交接容器 | 玩家 |
-| `largerinventory.player.info` | 查看自己的背包信息 | 玩家 |
-| `largerinventory.admin.forcereset` | 强制重置背包 | OP |
-| `largerinventory.admin.opencontainer` | 打开任意玩家交接容器 | OP |
-| `largerinventory.admin.reload` | 重载配置 | OP |
-| `largerinventory.admin.info` | 查看任意玩家背包信息 | OP |
-| `largerinventory.admin.bypass` | 创造模式下解除按钮槽拦截 | OP |
-| `largerinventory.admin.*` | 所有管理员权限 | OP |
+| 权限节点                                   | 说明           | 默认 |
+|----------------------------------------|--------------|----|
+| `largerinventory.use`                  | 使用扩展背包功能     | 玩家 |
+| `largerinventory.player.opencontainer` | 打开自己的交接容器    | 玩家 |
+| `largerinventory.player.info`          | 查看自己的背包信息    | 玩家 |
+| `largerinventory.admin.forcereset`     | 强制重置背包       | OP |
+| `largerinventory.admin.opencontainer`  | 打开任意玩家交接容器   | OP |
+| `largerinventory.admin.reload`         | 重载配置         | OP |
+| `largerinventory.admin.info`           | 查看任意玩家背包信息   | OP |
+| `largerinventory.admin.bypass`         | 创造模式下解除按钮槽拦截 | OP |
+| `largerinventory.admin.*`              | 所有管理员权限      | OP |
 
 ### 数据存储
 
@@ -107,6 +108,7 @@ data:
 ---
 
 <a name="english"></a>
+
 ## English
 
 A Minecraft Spigot plugin that extends player inventory capacity through a paging system.
@@ -161,17 +163,18 @@ data:
 
 ### Commands
 
-| Command | Description | Permission |
-|---------|-------------|------------|
-| `/li info [player]` | View player inventory info | `largerinventory.admin` |
-| `/li forcereset` | Force reset inventory exceeding limits | `largerinventory.admin` |
-| `/li opencontainer [player]` | Open handover container | `largerinventory.admin` |
-| `/li bypass` | Temporarily bypass button slot protection in creative mode | `largerinventory.admin.bypass` |
-| `/li reload` | Reload configuration | `largerinventory.admin` |
+| Command                      | Description                                                | Permission                     |
+|------------------------------|------------------------------------------------------------|--------------------------------|
+| `/li info [player]`          | View player inventory info                                 | `largerinventory.admin`        |
+| `/li forcereset`             | Force reset inventory exceeding limits                     | `largerinventory.admin`        |
+| `/li opencontainer [player]` | Open handover container                                    | `largerinventory.admin`        |
+| `/li bypass`                 | Temporarily bypass button slot protection in creative mode | `largerinventory.admin.bypass` |
+| `/li reload`                 | Reload configuration                                       | `largerinventory.admin`        |
 
 #### Bypass Mode
 
-Use `/li bypass` in creative mode to temporarily bypass button slot protection, allowing admins to freely edit button slots in inventory.
+Use `/li bypass` in creative mode to temporarily bypass button slot protection, allowing admins to freely edit button
+slots in inventory.
 
 - **Activation**: Must be in creative mode
 - **Usage**: Type `/li bypass` to enable, type again to disable
@@ -180,17 +183,17 @@ Use `/li bypass` in creative mode to temporarily bypass button slot protection, 
 
 ### Permissions
 
-| Permission Node | Description | Default |
-|-----------------|-------------|---------|
-| `largerinventory.use` | Use extended inventory feature | Player |
-| `largerinventory.player.opencontainer` | Open own handover container | Player |
-| `largerinventory.player.info` | View own inventory info | Player |
-| `largerinventory.admin.forcereset` | Force reset inventory | OP |
-| `largerinventory.admin.opencontainer` | Open any player's handover container | OP |
-| `largerinventory.admin.reload` | Reload configuration | OP |
-| `largerinventory.admin.info` | View any player's inventory info | OP |
-| `largerinventory.admin.bypass` | Bypass button slot protection in creative | OP |
-| `largerinventory.admin.*` | All admin permissions | OP |
+| Permission Node                        | Description                               | Default |
+|----------------------------------------|-------------------------------------------|---------|
+| `largerinventory.use`                  | Use extended inventory feature            | Player  |
+| `largerinventory.player.opencontainer` | Open own handover container               | Player  |
+| `largerinventory.player.info`          | View own inventory info                   | Player  |
+| `largerinventory.admin.forcereset`     | Force reset inventory                     | OP      |
+| `largerinventory.admin.opencontainer`  | Open any player's handover container      | OP      |
+| `largerinventory.admin.reload`         | Reload configuration                      | OP      |
+| `largerinventory.admin.info`           | View any player's inventory info          | OP      |
+| `largerinventory.admin.bypass`         | Bypass button slot protection in creative | OP      |
+| `largerinventory.admin.*`              | All admin permissions                     | OP      |
 
 ### Data Storage
 

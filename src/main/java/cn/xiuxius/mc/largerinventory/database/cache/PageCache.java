@@ -18,34 +18,6 @@ import java.util.*;
  */
 public class PageCache {
 
-    /** 驱逐脏页时的回调（主线程调用） */
-    @FunctionalInterface
-    public interface EvictionListener {
-        void onDirtyEvict(int page, Map<Integer, ItemStack> snapshot);
-    }
-
-    /** 快照条目，用于异步写入任务 */
-    public record DirtySnapshot(int page, Map<Integer, ItemStack> items, int version) {}
-
-    private static final class Entry {
-        final Map<Integer, ItemStack> items = new HashMap<>();
-        boolean dirty;
-        int version;
-
-        Entry(Map<Integer, ItemStack> source, boolean dirty) {
-            this.items.putAll(source);
-            this.dirty = dirty;
-            this.version = dirty ? 1 : 0;
-        }
-
-        void update(Map<Integer, ItemStack> newItems) {
-            items.clear();
-            items.putAll(newItems);
-            dirty = true;
-            version++;
-        }
-    }
-
     private final LinkedHashMap<Integer, Entry> lru;
 
     public PageCache(int capacity, EvictionListener evictionListener) {
@@ -74,7 +46,9 @@ public class PageCache {
         return e != null ? e.items : null;
     }
 
-    /** 放入新页（从 DB 加载后），标记为干净 */
+    /**
+     * 放入新页（从 DB 加载后），标记为干净
+     */
     public void put(int page, Map<Integer, ItemStack> items) {
         lru.put(page, new Entry(items, false));
     }
@@ -131,12 +105,47 @@ public class PageCache {
         }
     }
 
-    /** 清空缓存（玩家退出 / 死亡清档时调用） */
+    /**
+     * 清空缓存（玩家退出 / 死亡清档时调用）
+     */
     public void clear() {
         lru.clear();
     }
 
     public int size() {
         return lru.size();
+    }
+
+    /**
+     * 驱逐脏页时的回调（主线程调用）
+     */
+    @FunctionalInterface
+    public interface EvictionListener {
+        void onDirtyEvict(int page, Map<Integer, ItemStack> snapshot);
+    }
+
+    /**
+     * 快照条目，用于异步写入任务
+     */
+    public record DirtySnapshot(int page, Map<Integer, ItemStack> items, int version) {
+    }
+
+    private static final class Entry {
+        final Map<Integer, ItemStack> items = new HashMap<>();
+        boolean dirty;
+        int version;
+
+        Entry(Map<Integer, ItemStack> source, boolean dirty) {
+            this.items.putAll(source);
+            this.dirty = dirty;
+            this.version = dirty ? 1 : 0;
+        }
+
+        void update(Map<Integer, ItemStack> newItems) {
+            items.clear();
+            items.putAll(newItems);
+            dirty = true;
+            version++;
+        }
     }
 }

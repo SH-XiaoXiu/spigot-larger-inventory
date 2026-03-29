@@ -13,7 +13,8 @@ import java.io.IOException;
  */
 public final class ItemSerializer {
 
-    private ItemSerializer() {}
+    private ItemSerializer() {
+    }
 
     public static byte[] serialize(ItemStack item) throws IOException {
         if (item == null || item.getType().isAir()) return null;

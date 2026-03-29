@@ -3,7 +3,10 @@ package cn.xiuxius.mc.largerinventory.database;
 import org.bukkit.inventory.ItemStack;
 
 import java.io.IOException;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,7 +37,8 @@ public class HandoverDAO {
                     try {
                         ItemStack item = ItemSerializer.deserialize(data);
                         if (item != null) items.put(rs.getInt("slot_index"), item);
-                    } catch (IOException | ClassNotFoundException ignored) {}
+                    } catch (IOException | ClassNotFoundException ignored) {
+                    }
                 }
             }
         }

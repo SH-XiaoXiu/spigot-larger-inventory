@@ -1,7 +1,7 @@
 package cn.xiuxius.mc;
 
 import cn.xiuxius.mc.largerinventory.command.AdminCommand;
-import cn.xiuxius.mc.largerinventory.config.ConfigManager;
+import cn.xiuxius.mc.largerinventory.config.*;
 import cn.xiuxius.mc.largerinventory.database.DatabaseManager;
 import cn.xiuxius.mc.largerinventory.database.HandoverDAO;
 import cn.xiuxius.mc.largerinventory.database.PageItemDAO;
@@ -18,7 +18,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 
-public final class LargerInventory extends JavaPlugin {
+import java.util.Set;
+
+public final class LargerInventory extends JavaPlugin implements Reloadable {
 
     // 组件
     private ConfigManager configManager;
@@ -34,6 +36,9 @@ public final class LargerInventory extends JavaPlugin {
 
     // 定时任务
     private BukkitTask autoSaveTask;
+
+    // 热更新调度器
+    private ReloadCoordinator reloadCoordinator;
 
     // 监听器
     private PlayerPickupItemListener pickupItemListener;
@@ -82,6 +87,13 @@ public final class LargerInventory extends JavaPlugin {
 
         // 注册事件监听器
         registerListeners();
+
+        // 初始化热更新调度器（在监听器注册后，pickupItemListener 已就绪）
+        reloadCoordinator = new ReloadCoordinator(this);
+        reloadCoordinator.register(messageManager);
+        reloadCoordinator.register(pickupItemListener);
+        reloadCoordinator.register(pageManager);
+        reloadCoordinator.register(this);
 
         // 注册命令
         registerCommands();
@@ -167,7 +179,7 @@ public final class LargerInventory extends JavaPlugin {
      * 注册命令
      */
     private void registerCommands() {
-        AdminCommand adminCommand = new AdminCommand(this, configManager, messageManager, playerMetaDAO, pageItemDAO, pageManager, handoverContainerManager, bypassManager);
+        AdminCommand adminCommand = new AdminCommand(this, configManager, messageManager, playerMetaDAO, pageItemDAO, pageManager, handoverContainerManager, bypassManager, reloadCoordinator);
         getCommand("largerinventory").setExecutor(adminCommand);
         getCommand("largerinventory").setTabCompleter(adminCommand);
     }
@@ -184,6 +196,22 @@ public final class LargerInventory extends JavaPlugin {
         }, autoSaveInterval * 20L, autoSaveInterval * 20L);
 
         getLogger().info(messageManager.getLog(MessageKeys.Log.SCHEDULED_TASK_STARTED, "interval", autoSaveInterval));
+    }
+
+    @Override
+    public ReloadResult onReload(PluginConfig newConfig, JavaPlugin plugin,
+                                 Set<Class<? extends Reloadable>> reloaded) {
+        if (autoSaveTask != null) {
+            autoSaveTask.cancel();
+        }
+        int interval = newConfig.getAutoSaveIntervalSeconds();
+        autoSaveTask = Bukkit.getScheduler().runTaskTimer(
+                this, pageManager::flushAllDirtyPages, interval * 20L, interval * 20L);
+        return ReloadResult.ok();
+    }
+
+    public ReloadCoordinator getReloadCoordinator() {
+        return reloadCoordinator;
     }
 
 }

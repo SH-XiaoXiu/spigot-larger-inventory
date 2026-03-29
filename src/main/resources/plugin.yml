@@ -15,7 +15,7 @@ commands:
       /<command> info - 查看背包信息
       /<command> forcereset - 重置所有超出限制的背包(管理员)
       /<command> reload - 重载配置(管理员)
-    aliases: [li]
+    aliases: [ li ]
 
 permissions:
   largerinventory.player.opencontainer:

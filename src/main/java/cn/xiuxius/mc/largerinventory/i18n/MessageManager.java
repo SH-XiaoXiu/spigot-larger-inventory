@@ -1,5 +1,8 @@
 package cn.xiuxius.mc.largerinventory.i18n;
 
+import cn.xiuxius.mc.largerinventory.config.PluginConfig;
+import cn.xiuxius.mc.largerinventory.config.ReloadResult;
+import cn.xiuxius.mc.largerinventory.config.Reloadable;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -9,12 +12,13 @@ import java.io.File;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.Set;
 
 /**
  * 国际化消息管理器
  * 负责加载、缓存和格式化多语言消息
  */
-public class MessageManager {
+public class MessageManager implements Reloadable {
 
     private final JavaPlugin plugin;
     private final String defaultLocale;
@@ -76,7 +80,7 @@ public class MessageManager {
             InputStream is = plugin.getResource("lang/" + locale + ".yml");
             if (is != null) {
                 messages = YamlConfiguration.loadConfiguration(
-                    new InputStreamReader(is, StandardCharsets.UTF_8));
+                        new InputStreamReader(is, StandardCharsets.UTF_8));
             }
         }
     }
@@ -86,6 +90,13 @@ public class MessageManager {
         if (file.exists()) {
             defaultMessages = YamlConfiguration.loadConfiguration(file);
         }
+    }
+
+    /**
+     * 获取当前语言
+     */
+    public String getLocale() {
+        return currentLocale;
     }
 
     /**
@@ -100,15 +111,9 @@ public class MessageManager {
     }
 
     /**
-     * 获取当前语言
-     */
-    public String getLocale() {
-        return currentLocale;
-    }
-
-    /**
      * 获取消息（带占位符替换）
-     * @param key 消息键
+     *
+     * @param key  消息键
      * @param args 占位符参数（键值对形式）
      */
     public String get(String key, Object... args) {
@@ -178,6 +183,14 @@ public class MessageManager {
      */
     public void reload() {
         load();
+    }
+
+    @Override
+    public ReloadResult onReload(PluginConfig newConfig, JavaPlugin plugin,
+                                 Set<Class<? extends Reloadable>> reloaded) {
+        setLocale(newConfig.getLanguage());
+        reload();
+        return ReloadResult.ok();
     }
 
     /**

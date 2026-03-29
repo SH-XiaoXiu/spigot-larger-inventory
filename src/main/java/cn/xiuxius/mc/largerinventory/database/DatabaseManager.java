@@ -10,7 +10,7 @@ import java.util.logging.Level;
 
 /**
  * 数据库管理器（无状态连接模型）
- *
+ * <p>
  * getConnection() 每次返回一个新连接，调用方必须在 try-with-resources 中使用。
  * SQLite WAL 模式原生支持多连接并发读写，无需连接池。
  */
@@ -32,7 +32,9 @@ public class DatabaseManager {
         return DATABASE_VERSION;
     }
 
-    /** 初始化：建表、版本迁移，使用一次性局部连接。 */
+    /**
+     * 初始化：建表、版本迁移，使用一次性局部连接。
+     */
     public void init() {
         try {
             File dataFolder = plugin.getDataFolder();
@@ -67,7 +69,9 @@ public class DatabaseManager {
         return openConnection();
     }
 
-    /** 无持久连接，此方法仅做记录。 */
+    /**
+     * 无持久连接，此方法仅做记录。
+     */
     public void close() {
         plugin.getLogger().info(messageManager.getLog(MessageKeys.Log.DB_CONNECTION_CLOSED));
     }

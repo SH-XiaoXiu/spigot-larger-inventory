@@ -2,6 +2,8 @@ package cn.xiuxius.mc.largerinventory.listener;
 
 import cn.xiuxius.mc.largerinventory.config.ConfigManager;
 import cn.xiuxius.mc.largerinventory.config.PluginConfig;
+import cn.xiuxius.mc.largerinventory.config.ReloadResult;
+import cn.xiuxius.mc.largerinventory.config.Reloadable;
 import cn.xiuxius.mc.largerinventory.inventory.ButtonManager;
 import cn.xiuxius.mc.largerinventory.inventory.PageManager;
 import org.bukkit.Sound;
@@ -20,10 +22,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.Vector;
 
-import java.util.Collection;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -32,21 +31,19 @@ import java.util.concurrent.ConcurrentHashMap;
  * 当玩家背包满时，自动将拾取的物品存放到其他页面。
  * 支持拾取音效和物品飞行动画。
  */
-public class PlayerPickupItemListener implements Listener {
-
-    private final JavaPlugin plugin;
-    private final ConfigManager configManager;
-    private final PageManager pageManager;
-
-    // 玩家的定时任务
-    private final Map<UUID, BukkitTask> playerTasks = new ConcurrentHashMap<>();
-    // 正在处理中的物品UUID（防止重复处理）
-    private final Set<UUID> processingItems = ConcurrentHashMap.newKeySet();
+public class PlayerPickupItemListener implements Listener, Reloadable {
 
     // 拾取范围和检查间隔
     private static final double PICKUP_RANGE = 2.0;
     private static final long CHECK_INTERVAL_TICKS = 10L; // 0.5秒检查一次
     private static final long ANIMATION_DELAY_TICKS = 5L; // 动画持续时间
+    private final JavaPlugin plugin;
+    private final ConfigManager configManager;
+    private final PageManager pageManager;
+    // 玩家的定时任务
+    private final Map<UUID, BukkitTask> playerTasks = new ConcurrentHashMap<>();
+    // 正在处理中的物品UUID（防止重复处理）
+    private final Set<UUID> processingItems = ConcurrentHashMap.newKeySet();
 
     public PlayerPickupItemListener(JavaPlugin plugin, ConfigManager configManager, PageManager pageManager, @Deprecated ButtonManager ignored) {
         this.plugin = plugin;
@@ -240,6 +237,25 @@ public class PlayerPickupItemListener implements Listener {
             return maxStack - existing.getAmount();
         }
         return 0;
+    }
+
+    @Override
+    public ReloadResult onReload(PluginConfig newConfig, JavaPlugin plugin,
+                                 Set<Class<? extends Reloadable>> reloaded) {
+        if (newConfig.isCrossPagePickup()) {
+            // 为尚未启动任务的在线玩家启动
+            for (Player player : plugin.getServer().getOnlinePlayers()) {
+                if (!playerTasks.containsKey(player.getUniqueId())) {
+                    startPickupCheckTask(player);
+                }
+            }
+        } else {
+            // 停止所有任务
+            for (UUID uuid : new ArrayList<>(playerTasks.keySet())) {
+                stopPickupCheckTask(uuid);
+            }
+        }
+        return ReloadResult.ok();
     }
 
     /**

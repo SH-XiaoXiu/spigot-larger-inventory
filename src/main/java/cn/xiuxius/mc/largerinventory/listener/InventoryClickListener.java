@@ -2,14 +2,17 @@ package cn.xiuxius.mc.largerinventory.listener;
 
 import cn.xiuxius.mc.largerinventory.config.ConfigManager;
 import cn.xiuxius.mc.largerinventory.config.PluginConfig;
-import cn.xiuxius.mc.largerinventory.inventory.BypassManager;
 import cn.xiuxius.mc.largerinventory.inventory.ButtonManager;
+import cn.xiuxius.mc.largerinventory.inventory.BypassManager;
 import cn.xiuxius.mc.largerinventory.inventory.PageManager;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.*;
+import org.bukkit.event.inventory.ClickType;
+import org.bukkit.event.inventory.InventoryAction;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 

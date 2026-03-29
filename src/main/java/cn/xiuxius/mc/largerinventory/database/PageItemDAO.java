@@ -3,7 +3,10 @@ package cn.xiuxius.mc.largerinventory.database;
 import org.bukkit.inventory.ItemStack;
 
 import java.io.IOException;
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -59,7 +62,8 @@ public class PageItemDAO {
                             result.computeIfAbsent(rs.getInt("page_number"), k -> new HashMap<>())
                                     .put(rs.getInt("slot_index"), item);
                         }
-                    } catch (IOException | ClassNotFoundException ignored) {}
+                    } catch (IOException | ClassNotFoundException ignored) {
+                    }
                 }
             }
         }

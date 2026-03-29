@@ -46,7 +46,9 @@ public final class PluginConfig {
         this.crossPageDeathDrop = crossPageDeathDrop;
     }
 
-    /** 从 Bukkit FileConfiguration 构造配置实例。 */
+    /**
+     * 从 Bukkit FileConfiguration 构造配置实例。
+     */
     public static PluginConfig from(FileConfiguration cfg) {
         return new PluginConfig(
                 cfg.getString("language", "zh_CN"),
@@ -74,21 +76,58 @@ public final class PluginConfig {
         return s == null ? "" : ChatColor.translateAlternateColorCodes('&', s);
     }
 
-    /** 判断槽位是否为按钮槽。 */
+    /**
+     * 判断槽位是否为按钮槽。
+     */
     public boolean isButtonSlot(int slot) {
         return slot == prevButtonSlot || slot == nextButtonSlot;
     }
 
-    public String getLanguage() { return language; }
-    public int getPrevButtonSlot() { return prevButtonSlot; }
-    public int getNextButtonSlot() { return nextButtonSlot; }
-    public Material getPrevButtonMaterial() { return prevButtonMaterial; }
-    public Material getNextButtonMaterial() { return nextButtonMaterial; }
-    public String getPrevButtonName() { return prevButtonName; }
-    public String getNextButtonName() { return nextButtonName; }
-    public int getMaxPages() { return maxPages; }
-    public int getBackupRetentionDays() { return backupRetentionDays; }
-    public int getAutoSaveIntervalSeconds() { return autoSaveIntervalSeconds; }
-    public boolean isCrossPagePickup() { return crossPagePickup; }
-    public boolean isCrossPageDeathDrop() { return crossPageDeathDrop; }
+    public String getLanguage() {
+        return language;
+    }
+
+    public int getPrevButtonSlot() {
+        return prevButtonSlot;
+    }
+
+    public int getNextButtonSlot() {
+        return nextButtonSlot;
+    }
+
+    public Material getPrevButtonMaterial() {
+        return prevButtonMaterial;
+    }
+
+    public Material getNextButtonMaterial() {
+        return nextButtonMaterial;
+    }
+
+    public String getPrevButtonName() {
+        return prevButtonName;
+    }
+
+    public String getNextButtonName() {
+        return nextButtonName;
+    }
+
+    public int getMaxPages() {
+        return maxPages;
+    }
+
+    public int getBackupRetentionDays() {
+        return backupRetentionDays;
+    }
+
+    public int getAutoSaveIntervalSeconds() {
+        return autoSaveIntervalSeconds;
+    }
+
+    public boolean isCrossPagePickup() {
+        return crossPagePickup;
+    }
+
+    public boolean isCrossPageDeathDrop() {
+        return crossPageDeathDrop;
+    }
 }

@@ -2,6 +2,7 @@ package cn.xiuxius.mc.largerinventory.command;
 
 import cn.xiuxius.mc.largerinventory.config.ConfigManager;
 import cn.xiuxius.mc.largerinventory.config.PluginConfig;
+import cn.xiuxius.mc.largerinventory.config.ReloadCoordinator;
 import cn.xiuxius.mc.largerinventory.database.PageItemDAO;
 import cn.xiuxius.mc.largerinventory.database.PlayerMetaDAO;
 import cn.xiuxius.mc.largerinventory.database.model.PlayerMeta;
@@ -39,10 +40,12 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
     private final PageManager pageManager;
     private final HandoverContainerManager handoverManager;
     private final BypassManager bypassManager;
+    private final ReloadCoordinator reloadCoordinator;
 
     public AdminCommand(JavaPlugin plugin, ConfigManager configManager, MessageManager messageManager,
                         PlayerMetaDAO metaDao, PageItemDAO pageItemDao, PageManager pageManager,
-                        HandoverContainerManager handoverManager, BypassManager bypassManager) {
+                        HandoverContainerManager handoverManager, BypassManager bypassManager,
+                        ReloadCoordinator reloadCoordinator) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.messageManager = messageManager;
@@ -51,6 +54,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         this.pageManager = pageManager;
         this.handoverManager = handoverManager;
         this.bypassManager = bypassManager;
+        this.reloadCoordinator = reloadCoordinator;
     }
 
     @Override
@@ -276,9 +280,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
             return true;
         }
 
-        // 重载语言文件（支持语言切换）
-        messageManager.setLocale(configManager.getConfig().getLanguage());
-        messageManager.reload();
+        reloadCoordinator.execute(configManager.getConfig());
 
         sender.sendMessage(messageManager.get(MessageKeys.Command.RELOAD_SUCCESS));
         return true;

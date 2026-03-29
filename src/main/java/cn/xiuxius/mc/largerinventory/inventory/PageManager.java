@@ -2,6 +2,8 @@ package cn.xiuxius.mc.largerinventory.inventory;
 
 import cn.xiuxius.mc.largerinventory.config.ConfigManager;
 import cn.xiuxius.mc.largerinventory.config.PluginConfig;
+import cn.xiuxius.mc.largerinventory.config.ReloadResult;
+import cn.xiuxius.mc.largerinventory.config.Reloadable;
 import cn.xiuxius.mc.largerinventory.database.PageItemDAO;
 import cn.xiuxius.mc.largerinventory.database.PlayerMetaDAO;
 import cn.xiuxius.mc.largerinventory.database.cache.PageCache;
@@ -27,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap;
  *   <li>跨页操作仅查缓存；缺页时通过 preloadPagesForPickup 提前异步加载</li>
  * </ul>
  */
-public class PageManager {
+public class PageManager implements Reloadable {
 
     public static final int MAX_PAGES_HARD_LIMIT = 99;
     private static final int PAGE_CACHE_SIZE = 6;
@@ -56,42 +58,6 @@ public class PageManager {
         this.metaDao = metaDao;
         this.pageItemDao = pageItemDao;
     }
-
-    /**
-     * 玩家运行时状态（仅在主线程读写）
-     */
-    public static class PlayerPageData {
-        private volatile int currentPage;
-        private volatile int maxPage;
-        private volatile boolean switching;
-        final PageCache cache;
-
-        PlayerPageData(int currentPage, int maxPage, PageCache cache) {
-            this.currentPage = currentPage;
-            this.maxPage = maxPage;
-            this.cache = cache;
-        }
-
-        public int getCurrentPage() {
-            return currentPage;
-        }
-
-        public int getMaxPage() {
-            return maxPage;
-        }
-
-        public boolean isSwitching() {
-            return switching;
-        }
-    }
-
-    /**
-     * 异步写入任务的快照描述
-     */
-    private record WriteTask(UUID uuid, int pageNum, Map<Integer, ItemStack> items,
-                             int version, PageCache cache) {
-    }
-
 
     public void initPlayer(Player player) {
         UUID uuid = player.getUniqueId();
@@ -132,7 +98,6 @@ public class PageManager {
         flushDirtyPagesSync(uuid, data);
         playerDataCache.remove(uuid);
     }
-
 
     public void prevPage(Player player) {
         PlayerPageData data = playerDataCache.get(player.getUniqueId());
@@ -237,8 +202,6 @@ public class PageManager {
         pendingPageTurnTasks.put(uuid, taskId);
     }
 
-    // 持久化
-
     /**
      * 定时刷脏入口
      *
@@ -326,6 +289,8 @@ public class PageManager {
         pageItemDao.savePage(uuid, data.currentPage, items);
     }
 
+    // 持久化
+
     public void saveCurrentPage(Player player) throws SQLException {
         forceFlushPlayer(player);
     }
@@ -382,6 +347,29 @@ public class PageManager {
         updateButtons(player, data.currentPage, data.maxPage);
     }
 
+    @Override
+    public ReloadResult onReload(PluginConfig newConfig, JavaPlugin plugin,
+                                 Set<Class<? extends Reloadable>> reloaded) {
+        // 按钮名称来自消息文件，需要等 MessageManager 先完成语言切换
+        if (!reloaded.contains(MessageManager.class)) {
+            return ReloadResult.waitingFor(MessageManager.class);
+        }
+        for (Player player : plugin.getServer().getOnlinePlayers()) {
+            // 1. 移除背包中所有旧按钮（处理按钮槽位变更的残留）
+            for (int i = 0; i < player.getInventory().getSize(); i++) {
+                ItemStack item = player.getInventory().getItem(i);
+                if (buttonManager.isButton(item)) {
+                    player.getInventory().setItem(i, null);
+                }
+            }
+            // 2. 将新按钮槽位中的普通物品移走
+            handleButtonSlotConflict(player);
+            // 3. 在新槽位放置刷新后的按钮
+            restoreButtons(player);
+        }
+        return ReloadResult.ok();
+    }
+
     public boolean isButtonsEnabled() {
         return getEffectiveMaxPages() > 1;
     }
@@ -417,8 +405,6 @@ public class PageManager {
         items.forEach((slot, item) -> player.getInventory().setItem(slot, item));
     }
 
-    // 工具
-
     public Map<Integer, ItemStack> snapshotCurrentPage(Player player) {
         PluginConfig cfg = configManager.getConfig();
         int prevSlot = cfg.getPrevButtonSlot();
@@ -440,6 +426,8 @@ public class PageManager {
         if (configured <= 0) return MAX_PAGES_HARD_LIMIT;
         return Math.min(configured, MAX_PAGES_HARD_LIMIT);
     }
+
+    // 工具
 
     private void snapshotToCache(Player player, PlayerPageData data) {
         Map<Integer, ItemStack> items = snapshotCurrentPage(player);
@@ -500,7 +488,6 @@ public class PageManager {
         return unplaceable;
     }
 
-    // 跨页拾取
     /**
      * 跨页拾取：仅查缓存，不同步读 DB。
      * 缺页时请先调用 preloadPagesForPickup 触发异步预加载。
@@ -566,6 +553,8 @@ public class PageManager {
             });
         });
     }
+
+    // 跨页拾取
 
     private int tryStackInCurrentPage(Player player, ItemStack item, int prevSlot, int nextSlot) {
         int remaining = item.getAmount();
@@ -662,8 +651,6 @@ public class PageManager {
         return remaining;
     }
 
-    // 跨页死亡掉落
-
     public Map<Integer, Map<Integer, ItemStack>> getAllPageItems(Player player) {
         UUID uuid = player.getUniqueId();
         PlayerPageData data = playerDataCache.get(uuid);
@@ -719,6 +706,8 @@ public class PageManager {
         updateButtons(player, 0, 0);
     }
 
+    // 跨页死亡掉落
+
     public PlayerPageData getPlayerData(UUID uuid) {
         return playerDataCache.get(uuid);
     }
@@ -731,5 +720,40 @@ public class PageManager {
     public int getMaxPage(UUID uuid) {
         PlayerPageData data = playerDataCache.get(uuid);
         return data != null ? data.maxPage : 0;
+    }
+
+    /**
+     * 玩家运行时状态（仅在主线程读写）
+     */
+    public static class PlayerPageData {
+        final PageCache cache;
+        private volatile int currentPage;
+        private volatile int maxPage;
+        private volatile boolean switching;
+
+        PlayerPageData(int currentPage, int maxPage, PageCache cache) {
+            this.currentPage = currentPage;
+            this.maxPage = maxPage;
+            this.cache = cache;
+        }
+
+        public int getCurrentPage() {
+            return currentPage;
+        }
+
+        public int getMaxPage() {
+            return maxPage;
+        }
+
+        public boolean isSwitching() {
+            return switching;
+        }
+    }
+
+    /**
+     * 异步写入任务的快照描述
+     */
+    private record WriteTask(UUID uuid, int pageNum, Map<Integer, ItemStack> items,
+                             int version, PageCache cache) {
     }
 }
