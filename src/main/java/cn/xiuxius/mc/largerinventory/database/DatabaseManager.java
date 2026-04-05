@@ -34,7 +34,7 @@ public class DatabaseManager {
         if (mysql) {
             String jdbcUrl = "jdbc:mysql://" + config.getMysqlHost() + ":" + config.getMysqlPort()
                     + "/" + config.getMysqlDatabase()
-                    + "?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=utf8mb4&useUnicode=true";
+                    + "?useSSL=false&allowPublicKeyRetrieval=true&characterEncoding=UTF-8&useUnicode=true";
             hikariConfig.setJdbcUrl(jdbcUrl);
             hikariConfig.setUsername(config.getMysqlUsername());
             hikariConfig.setPassword(config.getMysqlPassword());
