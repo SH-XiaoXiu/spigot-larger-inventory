@@ -25,13 +25,16 @@ public final class PluginConfig {
     private final String pageTurnSound;
     private final float pageTurnVolume;
     private final float pageTurnPitch;
+    private final int prevCustomModelData;
+    private final int nextCustomModelData;
 
     private PluginConfig(String language,
                          int prevButtonSlot, int nextButtonSlot,
                          Material prevButtonMaterial, Material nextButtonMaterial,
                          int maxPages, int backupRetentionDays, int autoSaveIntervalSeconds,
                          boolean crossPagePickup, boolean crossPageDeathDrop,
-                         String pageTurnSound, float pageTurnVolume, float pageTurnPitch) {
+                         String pageTurnSound, float pageTurnVolume, float pageTurnPitch,
+                         int prevCustomModelData, int nextCustomModelData) {
         this.language = language;
         this.prevButtonSlot = prevButtonSlot;
         this.nextButtonSlot = nextButtonSlot;
@@ -45,6 +48,8 @@ public final class PluginConfig {
         this.pageTurnSound = pageTurnSound;
         this.pageTurnVolume = pageTurnVolume;
         this.pageTurnPitch = pageTurnPitch;
+        this.prevCustomModelData = prevCustomModelData;
+        this.nextCustomModelData = nextCustomModelData;
     }
 
     /**
@@ -66,7 +71,9 @@ public final class PluginConfig {
                 cfg.getBoolean("features.cross-page-death-drop", true),
                 pageTurnSound,
                 (float) cfg.getDouble("buttons.page-turn-volume", 1.0),
-                (float) cfg.getDouble("buttons.page-turn-pitch", 1.0)
+                (float) cfg.getDouble("buttons.page-turn-pitch", 1.0),
+                cfg.getInt("buttons.prev-custom-model-data", 0),
+                cfg.getInt("buttons.next-custom-model-data", 0)
         );
     }
 
@@ -133,5 +140,13 @@ public final class PluginConfig {
 
     public float getPageTurnPitch() {
         return pageTurnPitch;
+    }
+
+    public int getPrevCustomModelData() {
+        return prevCustomModelData;
+    }
+
+    public int getNextCustomModelData() {
+        return nextCustomModelData;
     }
 }

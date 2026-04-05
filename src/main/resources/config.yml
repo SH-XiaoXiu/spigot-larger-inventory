@@ -19,6 +19,11 @@ buttons:
   page-turn-volume: 1.0
   page-turn-pitch: 1.0
 
+  # 自定义模型数据 / Custom model data (0 = disabled)
+  # 用于资源包自定义按钮纹理 / For resource pack custom button textures
+  prev-custom-model-data: 0
+  next-custom-model-data: 0
+
 # 分页限制 / Page limits
 limits:
   # 0表示使用插件最大限制 (99页) / 0 = use maximum limit (99 pages)

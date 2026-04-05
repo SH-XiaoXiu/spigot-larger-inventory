@@ -66,6 +66,12 @@ public class ButtonManager {
             }
             meta.setLore(lore);
 
+            // 自定义模型数据
+            int cmd = configManager.getConfig().getPrevCustomModelData();
+            if (cmd > 0) {
+                meta.setCustomModelData(cmd);
+            }
+
             // 标记为按钮
             PersistentDataContainer container = meta.getPersistentDataContainer();
             container.set(buttonKey, PersistentDataType.STRING, BUTTON_PREV);
@@ -107,6 +113,12 @@ public class ButtonManager {
                 lore.add(messageManager.get(MessageKeys.Button.NEXT_LORE_CANNOT));
             }
             meta.setLore(lore);
+
+            // 自定义模型数据
+            int cmd = configManager.getConfig().getNextCustomModelData();
+            if (cmd > 0) {
+                meta.setCustomModelData(cmd);
+            }
 
             // 标记为按钮
             PersistentDataContainer container = meta.getPersistentDataContainer();
