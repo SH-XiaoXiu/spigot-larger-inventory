@@ -374,6 +374,15 @@ public class PageManager implements Reloadable {
             if (pageTurnCooldown.contains(uuid)) return;
             pageTurnCooldown.add(uuid);
             Bukkit.getScheduler().runTaskLater(plugin, () -> pageTurnCooldown.remove(uuid), 2L);
+
+            // 检测页数限制是否缩减（权限在线变更），自动触发溢出处理
+            PlayerPageData clickData = playerDataCache.get(uuid);
+            if (clickData != null && clickData.maxPage >= getEffectiveMaxPages(player)) {
+                processOverflow(player);
+                player.updateInventory();
+                return;
+            }
+
             if (ButtonManager.BUTTON_PREV.equals(buttonType) && canPrevPage(player)) {
                 prevPage(player);
             } else if (ButtonManager.BUTTON_NEXT.equals(buttonType) && canNextPage(player)) {
