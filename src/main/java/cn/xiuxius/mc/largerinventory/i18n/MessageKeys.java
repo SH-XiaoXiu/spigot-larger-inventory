@@ -130,6 +130,7 @@ public final class MessageKeys {
         public static final String BUTTON_POSITIONS = "log.plugin.button-positions";
         public static final String MAX_PAGES = "log.plugin.max-pages";
         public static final String SCHEDULED_TASK_STARTED = "log.plugin.scheduled-task-started";
+        public static final String PAPI_REGISTERED = "log.plugin.papi-registered";
         // 配置
         public static final String CONFIG_VALIDATION_FAILED = "log.config.validation-failed";
         public static final String CONFIG_BUTTON_SLOT_INVALID = "log.config.button-slot-invalid";

@@ -114,6 +114,12 @@ public final class LargerInventory extends JavaPlugin implements Reloadable {
             pageManager.processOverflow(player);
         }
 
+        // PlaceholderAPI 集成
+        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) {
+            new cn.xiuxius.mc.largerinventory.integration.PapiExpansion(this, pageManager, pageNameDAO).register();
+            getLogger().info(messageManager.getLog(MessageKeys.Log.PAPI_REGISTERED));
+        }
+
         getLogger().info(messageManager.getLog(MessageKeys.Log.PLUGIN_ENABLED));
         getLogger().info(messageManager.getLog(MessageKeys.Log.BUTTON_POSITIONS,
                 "prev", configManager.getConfig().getPrevButtonSlot(),

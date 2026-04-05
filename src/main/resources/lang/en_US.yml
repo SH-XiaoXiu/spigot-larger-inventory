@@ -115,6 +115,7 @@ log:
     button-positions: "Button positions: Previous={prev}, Next={next}"
     max-pages: "Max pages: {limit}"
     scheduled-task-started: "Scheduled task started: auto-save interval {interval} seconds"
+    papi-registered: "PlaceholderAPI expansion registered"
 
   config:
     validation-failed: "Configuration validation failed, plugin will be disabled!"

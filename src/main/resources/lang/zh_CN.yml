@@ -115,6 +115,7 @@ log:
     button-positions: "按钮位置: 上一页={prev}, 下一页={next}"
     max-pages: "最大页数: {limit}"
     scheduled-task-started: "定时任务已启动：自动保存间隔 {interval} 秒"
+    papi-registered: "PlaceholderAPI 扩展已注册"
 
   config:
     validation-failed: "配置验证失败，插件将禁用！"
