@@ -8,6 +8,9 @@ description: 更大的背包
 website: www.xiuxius.cn
 softdepend: [ PlaceholderAPI ]
 
+libraries:
+  - com.zaxxer:HikariCP:5.1.0
+
 commands:
   largerinventory:
     description: LargerInventory主命令
