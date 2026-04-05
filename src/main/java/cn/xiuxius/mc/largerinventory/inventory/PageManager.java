@@ -183,6 +183,7 @@ public class PageManager implements Reloadable {
                         inventoryLocked.remove(uuid);
                         return;
                     }
+                    data.cache.clear();
                     data.cache.put(data.currentPage, currentItems);
                     clearInventoryMain(player);
                     loadItemsToInventory(player, currentItems);
