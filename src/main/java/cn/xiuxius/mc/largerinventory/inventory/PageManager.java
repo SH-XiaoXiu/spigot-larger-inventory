@@ -554,6 +554,18 @@ public class PageManager implements Reloadable {
         restoreButtons(player);
     }
 
+    /**
+     * 同步 flush 指定玩家的脏页（主线程调用）。
+     * 用于备份前确保数据已写入 DB。
+     */
+    public void flushPlayerSync(Player player) {
+        UUID uuid = player.getUniqueId();
+        PlayerPageData data = playerDataCache.get(uuid);
+        if (data == null) return;
+        snapshotToCache(player, data);
+        flushDirtyPagesSync(uuid, data);
+    }
+
     public boolean isButtonsEnabled() {
         return getEffectiveMaxPages() > 1;
     }

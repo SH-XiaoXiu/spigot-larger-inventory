@@ -12,6 +12,7 @@ command:
     bypass: "&e/largerinventory bypass &f- Temporarily disable button slot interception in creative mode"
     goto: "&e/largerinventory goto <page> &f- Jump to a specific page"
     name: "&e/largerinventory name [name] &f- Name current page (empty to clear)"
+    backup: "&e/largerinventory backup <create|list|restore|delete> &f- Backup management"
 
   error:
     no-permission: "&cYou do not have permission to execute this command."
@@ -49,6 +50,21 @@ command:
     get-failed: "&cFailed to get player info: {error}"
     effective-limit: "&eEffective Page Limit: &f{limit}"
     no-limit: "No limit"
+
+  backup:
+    usage: "&cUsage: /li backup <create|list|restore|delete> [player] [name]"
+    create-success: "&aCreated backup for player {player}: {name}"
+    create-failed: "&cFailed to create backup: {error}"
+    list-title: "&6===== Backups for {player} ====="
+    list-entry: "&e{name} &f- {date} {desc}"
+    list-empty: "&eNo backups found for this player."
+    restore-success: "&aRestored player {player} inventory from backup {name}."
+    restore-failed: "&cFailed to restore backup: {error}"
+    restore-not-found: "&cBackup not found: {name}"
+    delete-success: "&aDeleted backup: {name}"
+    delete-failed: "&cFailed to delete backup: {error}"
+    name-exists: "&cBackup {name} already exists."
+    player-must-online: "&cPlayer must be online for restore."
 
   name:
     set: "&aPage {page} named: {name}"
@@ -116,6 +132,10 @@ log:
     max-pages: "Max pages: {limit}"
     scheduled-task-started: "Scheduled task started: auto-save interval {interval} seconds"
     papi-registered: "PlaceholderAPI expansion registered"
+
+  backup:
+    cleanup: "Cleaned up {count} expired backups"
+    cleanup-failed: "Failed to clean up expired backups: {error}"
 
   config:
     validation-failed: "Configuration validation failed, plugin will be disabled!"

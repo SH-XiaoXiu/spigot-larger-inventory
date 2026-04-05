@@ -12,6 +12,7 @@ command:
     bypass: "&e/largerinventory bypass &f- 创造模式下临时解除按钮槽拦截"
     goto: "&e/largerinventory goto <页码> &f- 跳转到指定页"
     name: "&e/largerinventory name [名称] &f- 为当前页命名（留空清除）"
+    backup: "&e/largerinventory backup <create|list|restore|delete> &f- 备份管理"
 
   error:
     no-permission: "&c你没有权限执行此命令。"
@@ -49,6 +50,21 @@ command:
     get-failed: "&c获取玩家信息失败: {error}"
     effective-limit: "&e有效页数限制: &f{limit}"
     no-limit: "无限制"
+
+  backup:
+    usage: "&c用法: /li backup <create|list|restore|delete> [player] [name]"
+    create-success: "&a已为玩家 {player} 创建备份: {name}"
+    create-failed: "&c创建备份失败: {error}"
+    list-title: "&6===== {player} 的备份列表 ====="
+    list-entry: "&e{name} &f- {date} {desc}"
+    list-empty: "&e该玩家没有备份。"
+    restore-success: "&a已从备份 {name} 恢复玩家 {player} 的背包。"
+    restore-failed: "&c恢复备份失败: {error}"
+    restore-not-found: "&c未找到备份: {name}"
+    delete-success: "&a已删除备份: {name}"
+    delete-failed: "&c删除备份失败: {error}"
+    name-exists: "&c备份 {name} 已存在。"
+    player-must-online: "&c恢复操作需要玩家在线。"
 
   name:
     set: "&a第 {page} 页已命名为: {name}"
@@ -116,6 +132,10 @@ log:
     max-pages: "最大页数: {limit}"
     scheduled-task-started: "定时任务已启动：自动保存间隔 {interval} 秒"
     papi-registered: "PlaceholderAPI 扩展已注册"
+
+  backup:
+    cleanup: "已清理 {count} 个过期备份"
+    cleanup-failed: "清理过期备份失败: {error}"
 
   config:
     validation-failed: "配置验证失败，插件将禁用！"

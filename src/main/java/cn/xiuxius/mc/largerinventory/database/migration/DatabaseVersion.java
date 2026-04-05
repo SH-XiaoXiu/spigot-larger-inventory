@@ -6,7 +6,8 @@ package cn.xiuxius.mc.largerinventory.database.migration;
  */
 public enum DatabaseVersion {
     V1(1, null),
-    V2(2, new V2CreatePageNames());
+    V2(2, new V2CreatePageNames()),
+    V3(3, new V3CreateBackupTables());
 
     private final int version;
     private final Migration migration;

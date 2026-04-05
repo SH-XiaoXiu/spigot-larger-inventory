@@ -2,6 +2,7 @@ package cn.xiuxius.mc.largerinventory.command;
 
 import cn.xiuxius.mc.largerinventory.config.ConfigManager;
 import cn.xiuxius.mc.largerinventory.config.ReloadCoordinator;
+import cn.xiuxius.mc.largerinventory.database.BackupDAO;
 import cn.xiuxius.mc.largerinventory.database.PageItemDAO;
 import cn.xiuxius.mc.largerinventory.database.PlayerMetaDAO;
 import cn.xiuxius.mc.largerinventory.database.model.PlayerMeta;
@@ -40,11 +41,12 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
     private final HandoverContainerManager handoverManager;
     private final BypassManager bypassManager;
     private final ReloadCoordinator reloadCoordinator;
+    private final BackupDAO backupDao;
 
     public AdminCommand(JavaPlugin plugin, ConfigManager configManager, MessageManager messageManager,
                         PlayerMetaDAO metaDao, PageItemDAO pageItemDao, PageManager pageManager,
                         HandoverContainerManager handoverManager, BypassManager bypassManager,
-                        ReloadCoordinator reloadCoordinator) {
+                        ReloadCoordinator reloadCoordinator, BackupDAO backupDao) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.messageManager = messageManager;
@@ -54,6 +56,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         this.handoverManager = handoverManager;
         this.bypassManager = bypassManager;
         this.reloadCoordinator = reloadCoordinator;
+        this.backupDao = backupDao;
     }
 
     @Override
@@ -73,6 +76,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
             case "bypass" -> handleBypass(sender);
             case "goto" -> handleGoto(sender, args);
             case "name" -> handleName(sender, args);
+            case "backup" -> handleBackup(sender, args);
             default -> {
                 sendHelp(sender);
                 yield true;
@@ -353,6 +357,224 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    private boolean handleBackup(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("largerinventory.admin.backup")) {
+            sender.sendMessage(messageManager.get(MessageKeys.Command.NO_PERMISSION));
+            return true;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_USAGE));
+            return true;
+        }
+        return switch (args[1].toLowerCase()) {
+            case "create" -> handleBackupCreate(sender, args);
+            case "list" -> handleBackupList(sender, args);
+            case "restore" -> handleBackupRestore(sender, args);
+            case "delete" -> handleBackupDelete(sender, args);
+            default -> {
+                sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_USAGE));
+                yield true;
+            }
+        };
+    }
+
+    private boolean handleBackupCreate(CommandSender sender, String[] args) {
+        // /li backup create <player> [name]
+        if (args.length < 3) {
+            sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_USAGE));
+            return true;
+        }
+        String playerName = args[2];
+        Player target = Bukkit.getPlayer(playerName);
+        UUID uuid;
+        if (target != null) {
+            uuid = target.getUniqueId();
+            playerName = target.getName();
+            // 在线玩家先 flush
+            pageManager.flushPlayerSync(target);
+        } else {
+            try {
+                PlayerMeta meta = metaDao.getByName(playerName);
+                if (meta == null) {
+                    sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_PLAYER_NOT_FOUND, "player", playerName));
+                    return true;
+                }
+                uuid = meta.getUuid();
+                playerName = meta.getPlayerName() != null ? meta.getPlayerName() : uuid.toString();
+            } catch (SQLException e) {
+                sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_CREATE_FAILED, "error", e.getMessage()));
+                return true;
+            }
+        }
+
+        String backupName = args.length >= 4 ? args[3] :
+                new java.text.SimpleDateFormat("yyyy-MM-dd_HH-mm-ss").format(new java.util.Date());
+        String finalPlayerName = playerName;
+        UUID finalUuid = uuid;
+
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                if (backupDao.exists(finalUuid, backupName)) {
+                    Bukkit.getScheduler().runTask(plugin, () ->
+                            sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_NAME_EXISTS, "name", backupName)));
+                    return;
+                }
+                backupDao.createBackup(finalUuid, backupName, null);
+                Bukkit.getScheduler().runTask(plugin, () ->
+                        sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_CREATE_SUCCESS, "player", finalPlayerName, "name", backupName)));
+            } catch (SQLException e) {
+                Bukkit.getScheduler().runTask(plugin, () ->
+                        sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_CREATE_FAILED, "error", e.getMessage())));
+            }
+        });
+        return true;
+    }
+
+    private boolean handleBackupList(CommandSender sender, String[] args) {
+        // /li backup list <player>
+        if (args.length < 3) {
+            sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_USAGE));
+            return true;
+        }
+        String playerName = args[2];
+        UUID uuid;
+        try {
+            Player target = Bukkit.getPlayer(playerName);
+            if (target != null) {
+                uuid = target.getUniqueId();
+                playerName = target.getName();
+            } else {
+                PlayerMeta meta = metaDao.getByName(playerName);
+                if (meta == null) {
+                    sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_PLAYER_NOT_FOUND, "player", playerName));
+                    return true;
+                }
+                uuid = meta.getUuid();
+                playerName = meta.getPlayerName() != null ? meta.getPlayerName() : uuid.toString();
+            }
+        } catch (SQLException e) {
+            sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_LIST_EMPTY));
+            return true;
+        }
+
+        String finalPlayerName = playerName;
+        UUID finalUuid = uuid;
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                List<BackupDAO.BackupInfo> backups = backupDao.listBackups(finalUuid);
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (backups.isEmpty()) {
+                        sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_LIST_EMPTY));
+                        return;
+                    }
+                    sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_LIST_TITLE, "player", finalPlayerName));
+                    java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
+                    for (BackupDAO.BackupInfo info : backups) {
+                        String date = sdf.format(new java.util.Date(info.createdAt()));
+                        String desc = info.description() != null ? info.description() : "";
+                        sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_LIST_ENTRY,
+                                "name", info.name(), "date", date, "desc", desc));
+                    }
+                });
+            } catch (SQLException e) {
+                Bukkit.getScheduler().runTask(plugin, () ->
+                        sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_LIST_EMPTY)));
+            }
+        });
+        return true;
+    }
+
+    private boolean handleBackupRestore(CommandSender sender, String[] args) {
+        // /li backup restore <player> <name>
+        if (args.length < 4) {
+            sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_USAGE));
+            return true;
+        }
+        String playerName = args[2];
+        String backupName = args[3];
+        Player target = Bukkit.getPlayer(playerName);
+        if (target == null) {
+            sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_PLAYER_MUST_ONLINE));
+            return true;
+        }
+        UUID uuid = target.getUniqueId();
+
+        // 先 flush 当前数据
+        pageManager.flushPlayerSync(target);
+
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                if (!backupDao.exists(uuid, backupName)) {
+                    Bukkit.getScheduler().runTask(plugin, () ->
+                            sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_RESTORE_NOT_FOUND, "name", backupName)));
+                    return;
+                }
+                Map<Integer, Map<Integer, ItemStack>> backupData = backupDao.loadBackup(uuid, backupName);
+
+                // 清空现有数据并写入备份
+                pageItemDao.clearAll(uuid);
+                for (Map.Entry<Integer, Map<Integer, ItemStack>> entry : backupData.entrySet()) {
+                    pageItemDao.savePage(uuid, entry.getKey(), entry.getValue());
+                }
+
+                int newMaxPage = backupData.isEmpty() ? 0 : Collections.max(backupData.keySet());
+                metaDao.update(uuid, 0, newMaxPage);
+
+                // 回主线程重新初始化玩家
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    if (!target.isOnline()) return;
+                    pageManager.initPlayer(target);
+                    sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_RESTORE_SUCCESS,
+                            "player", target.getName(), "name", backupName));
+                });
+            } catch (SQLException e) {
+                Bukkit.getScheduler().runTask(plugin, () ->
+                        sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_RESTORE_FAILED, "error", e.getMessage())));
+            }
+        });
+        return true;
+    }
+
+    private boolean handleBackupDelete(CommandSender sender, String[] args) {
+        // /li backup delete <player> <name>
+        if (args.length < 4) {
+            sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_USAGE));
+            return true;
+        }
+        String playerName = args[2];
+        String backupName = args[3];
+        UUID uuid;
+        try {
+            Player target = Bukkit.getPlayer(playerName);
+            if (target != null) {
+                uuid = target.getUniqueId();
+            } else {
+                PlayerMeta meta = metaDao.getByName(playerName);
+                if (meta == null) {
+                    sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_PLAYER_NOT_FOUND, "player", playerName));
+                    return true;
+                }
+                uuid = meta.getUuid();
+            }
+        } catch (SQLException e) {
+            sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_DELETE_FAILED, "error", e.getMessage()));
+            return true;
+        }
+
+        UUID finalUuid = uuid;
+        Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                backupDao.deleteBackup(finalUuid, backupName);
+                Bukkit.getScheduler().runTask(plugin, () ->
+                        sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_DELETE_SUCCESS, "name", backupName)));
+            } catch (SQLException e) {
+                Bukkit.getScheduler().runTask(plugin, () ->
+                        sender.sendMessage(messageManager.get(MessageKeys.Command.BACKUP_DELETE_FAILED, "error", e.getMessage())));
+            }
+        });
+        return true;
+    }
+
     private boolean handleName(CommandSender sender, String[] args) {
         if (!sender.hasPermission("largerinventory.player.name")) {
             sender.sendMessage(messageManager.get(MessageKeys.Command.NO_PERMISSION));
@@ -423,6 +645,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(messageManager.get(MessageKeys.Command.HELP_BYPASS));
         sender.sendMessage(messageManager.get(MessageKeys.Command.HELP_GOTO));
         sender.sendMessage(messageManager.get(MessageKeys.Command.HELP_NAME));
+        sender.sendMessage(messageManager.get(MessageKeys.Command.HELP_BACKUP));
     }
 
     @Override
@@ -430,9 +653,11 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
 
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("forcereset", "opencontainer", "reload", "info", "bypass", "goto", "name"));
+            completions.addAll(Arrays.asList("forcereset", "opencontainer", "reload", "info", "bypass", "goto", "name", "backup"));
         } else if (args.length == 2) {
-            if (args[0].equalsIgnoreCase("goto")) {
+            if (args[0].equalsIgnoreCase("backup")) {
+                completions.addAll(Arrays.asList("create", "list", "restore", "delete"));
+            } else if (args[0].equalsIgnoreCase("goto")) {
                 int max = pageManager.getEffectiveMaxPages();
                 for (int i = 1; i <= Math.min(max, 20); i++) {
                     completions.add(String.valueOf(i));

@@ -3,6 +3,7 @@ package cn.xiuxius.mc;
 import cn.xiuxius.mc.largerinventory.command.AdminCommand;
 import cn.xiuxius.mc.largerinventory.config.*;
 import cn.xiuxius.mc.largerinventory.database.DatabaseManager;
+import cn.xiuxius.mc.largerinventory.database.BackupDAO;
 import cn.xiuxius.mc.largerinventory.database.HandoverDAO;
 import cn.xiuxius.mc.largerinventory.database.PageItemDAO;
 import cn.xiuxius.mc.largerinventory.database.PageNameDAO;
@@ -31,6 +32,7 @@ public final class LargerInventory extends JavaPlugin implements Reloadable {
     private PageItemDAO pageItemDAO;
     private HandoverDAO handoverDAO;
     private PageNameDAO pageNameDAO;
+    private BackupDAO backupDAO;
     private ButtonManager buttonManager;
     private PageManager pageManager;
     private HandoverContainerManager handoverContainerManager;
@@ -76,6 +78,7 @@ public final class LargerInventory extends JavaPlugin implements Reloadable {
         pageItemDAO = new PageItemDAO(databaseManager);
         handoverDAO = new HandoverDAO(databaseManager);
         pageNameDAO = new PageNameDAO(databaseManager);
+        backupDAO = new BackupDAO(databaseManager);
 
         // 初始化按钮管理器
         buttonManager = new ButtonManager(this, configManager, messageManager);
@@ -196,7 +199,7 @@ public final class LargerInventory extends JavaPlugin implements Reloadable {
      * 注册命令
      */
     private void registerCommands() {
-        AdminCommand adminCommand = new AdminCommand(this, configManager, messageManager, playerMetaDAO, pageItemDAO, pageManager, handoverContainerManager, bypassManager, reloadCoordinator);
+        AdminCommand adminCommand = new AdminCommand(this, configManager, messageManager, playerMetaDAO, pageItemDAO, pageManager, handoverContainerManager, bypassManager, reloadCoordinator, backupDAO);
         getCommand("largerinventory").setExecutor(adminCommand);
         getCommand("largerinventory").setTabCompleter(adminCommand);
     }
@@ -213,6 +216,21 @@ public final class LargerInventory extends JavaPlugin implements Reloadable {
         }, autoSaveInterval * 20L, autoSaveInterval * 20L);
 
         getLogger().info(messageManager.getLog(MessageKeys.Log.SCHEDULED_TASK_STARTED, "interval", autoSaveInterval));
+
+        // 备份清理任务（每24小时）
+        int retentionDays = configManager.getConfig().getBackupRetentionDays();
+        if (retentionDays > 0) {
+            Bukkit.getScheduler().runTaskTimerAsynchronously(this, () -> {
+                try {
+                    int cleaned = backupDAO.cleanupOldBackups(retentionDays);
+                    if (cleaned > 0) {
+                        getLogger().info(messageManager.getLog(MessageKeys.Log.BACKUP_CLEANUP, "count", cleaned));
+                    }
+                } catch (java.sql.SQLException e) {
+                    getLogger().warning(messageManager.getLog(MessageKeys.Log.BACKUP_CLEANUP_FAILED, "error", e.getMessage()));
+                }
+            }, 20 * 60 * 60L, 20 * 60 * 60L * 24);
+        }
     }
 
     @Override

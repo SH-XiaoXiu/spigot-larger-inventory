@@ -23,6 +23,21 @@ public final class MessageKeys {
         public static final String HELP_BYPASS = "command.help.bypass";
         public static final String HELP_GOTO = "command.help.goto";
         public static final String HELP_NAME = "command.help.name";
+        public static final String HELP_BACKUP = "command.help.backup";
+        // backup 命令
+        public static final String BACKUP_USAGE = "command.backup.usage";
+        public static final String BACKUP_CREATE_SUCCESS = "command.backup.create-success";
+        public static final String BACKUP_CREATE_FAILED = "command.backup.create-failed";
+        public static final String BACKUP_LIST_TITLE = "command.backup.list-title";
+        public static final String BACKUP_LIST_ENTRY = "command.backup.list-entry";
+        public static final String BACKUP_LIST_EMPTY = "command.backup.list-empty";
+        public static final String BACKUP_RESTORE_SUCCESS = "command.backup.restore-success";
+        public static final String BACKUP_RESTORE_FAILED = "command.backup.restore-failed";
+        public static final String BACKUP_RESTORE_NOT_FOUND = "command.backup.restore-not-found";
+        public static final String BACKUP_DELETE_SUCCESS = "command.backup.delete-success";
+        public static final String BACKUP_DELETE_FAILED = "command.backup.delete-failed";
+        public static final String BACKUP_NAME_EXISTS = "command.backup.name-exists";
+        public static final String BACKUP_PLAYER_MUST_ONLINE = "command.backup.player-must-online";
         // name 命令
         public static final String NAME_SET = "command.name.set";
         public static final String NAME_CLEARED = "command.name.cleared";
@@ -131,6 +146,9 @@ public final class MessageKeys {
         public static final String MAX_PAGES = "log.plugin.max-pages";
         public static final String SCHEDULED_TASK_STARTED = "log.plugin.scheduled-task-started";
         public static final String PAPI_REGISTERED = "log.plugin.papi-registered";
+        // 备份
+        public static final String BACKUP_CLEANUP = "log.backup.cleanup";
+        public static final String BACKUP_CLEANUP_FAILED = "log.backup.cleanup-failed";
         // 配置
         public static final String CONFIG_VALIDATION_FAILED = "log.config.validation-failed";
         public static final String CONFIG_BUTTON_SLOT_INVALID = "log.config.button-slot-invalid";
