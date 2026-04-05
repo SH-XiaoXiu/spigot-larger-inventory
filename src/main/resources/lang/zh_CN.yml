@@ -10,6 +10,7 @@ command:
     reload: "&e/largerinventory reload &f- 重载配置"
     info: "&e/largerinventory info [player] &f- 查看玩家背包信息"
     bypass: "&e/largerinventory bypass &f- 创造模式下临时解除按钮槽拦截"
+    goto: "&e/largerinventory goto <页码> &f- 跳转到指定页"
 
   error:
     no-permission: "&c你没有权限执行此命令。"
@@ -46,6 +47,12 @@ command:
     data-not-found: "&c玩家数据不存在: {player}"
     get-failed: "&c获取玩家信息失败: {error}"
     effective-limit: "&e有效页数限制: &f{limit}"
+
+  goto:
+    usage: "&c用法: /li goto <页码>"
+    invalid-page: "&c无效的页码: {page}"
+    out-of-range: "&c页码必须在 {min} 到 {max} 之间。"
+    success: "&a已跳转到第 {page} 页。"
 
   bypass:
     creative-only: "&cbypass 模式只能在创造模式下使用。"

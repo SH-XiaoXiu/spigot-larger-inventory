@@ -24,6 +24,9 @@ permissions:
   largerinventory.player.info:
     description: 允许玩家查看自己的背包信息
     default: true
+  largerinventory.player.goto:
+    description: 允许玩家快速跳转到指定页
+    default: true
   largerinventory.pages:
     description: 基于权限的页数限制 (如 largerinventory.pages.10 表示最多10页)
     default: false

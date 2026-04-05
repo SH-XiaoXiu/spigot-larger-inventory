@@ -10,6 +10,7 @@ command:
     reload: "&e/largerinventory reload &f- Reload configuration"
     info: "&e/largerinventory info [player] &f- View player inventory info"
     bypass: "&e/largerinventory bypass &f- Temporarily disable button slot interception in creative mode"
+    goto: "&e/largerinventory goto <page> &f- Jump to a specific page"
 
   error:
     no-permission: "&cYou do not have permission to execute this command."
@@ -46,6 +47,12 @@ command:
     data-not-found: "&cPlayer data not found: {player}"
     get-failed: "&cFailed to get player info: {error}"
     effective-limit: "&eEffective Page Limit: &f{limit}"
+
+  goto:
+    usage: "&cUsage: /li goto <page>"
+    invalid-page: "&cInvalid page number: {page}"
+    out-of-range: "&cPage must be between {min} and {max}."
+    success: "&aJumped to page {page}."
 
   bypass:
     creative-only: "&cBypass mode can only be used in creative mode."

@@ -21,6 +21,7 @@ public final class MessageKeys {
         public static final String HELP_RELOAD = "command.help.reload";
         public static final String HELP_INFO = "command.help.info";
         public static final String HELP_BYPASS = "command.help.bypass";
+        public static final String HELP_GOTO = "command.help.goto";
         // 权限
         public static final String NO_PERMISSION = "command.error.no-permission";
         public static final String PLAYER_ONLY = "command.error.player-only";
@@ -59,6 +60,11 @@ public final class MessageKeys {
         public static final String BYPASS_ENABLED_HINT_2 = "command.bypass.enabled-hint-2";
         public static final String BYPASS_DISABLED = "command.bypass.disabled";
         public static final String BYPASS_SLOT_NOT_EMPTY = "command.bypass.slot-not-empty";
+        // goto 命令
+        public static final String GOTO_USAGE = "command.goto.usage";
+        public static final String GOTO_INVALID_PAGE = "command.goto.invalid-page";
+        public static final String GOTO_OUT_OF_RANGE = "command.goto.out-of-range";
+        public static final String GOTO_SUCCESS = "command.goto.success";
 
         private Command() {
         }

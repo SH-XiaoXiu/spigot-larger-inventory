@@ -71,6 +71,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
             case "reload" -> handleReload(sender);
             case "info" -> handleInfo(sender, args);
             case "bypass" -> handleBypass(sender);
+            case "goto" -> handleGoto(sender, args);
             default -> {
                 sendHelp(sender);
                 yield true;
@@ -351,6 +352,36 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         return true;
     }
 
+    private boolean handleGoto(CommandSender sender, String[] args) {
+        if (!sender.hasPermission("largerinventory.player.goto")) {
+            sender.sendMessage(messageManager.get(MessageKeys.Command.NO_PERMISSION));
+            return true;
+        }
+        if (!(sender instanceof Player player)) {
+            sender.sendMessage(messageManager.get(MessageKeys.Command.PLAYER_ONLY));
+            return true;
+        }
+        if (args.length < 2) {
+            sender.sendMessage(messageManager.get(MessageKeys.Command.GOTO_USAGE));
+            return true;
+        }
+        int page;
+        try {
+            page = Integer.parseInt(args[1]);
+        } catch (NumberFormatException e) {
+            sender.sendMessage(messageManager.get(MessageKeys.Command.GOTO_INVALID_PAGE, "page", args[1]));
+            return true;
+        }
+        int maxPages = pageManager.getEffectiveMaxPages(player);
+        if (page < 1 || page > maxPages) {
+            sender.sendMessage(messageManager.get(MessageKeys.Command.GOTO_OUT_OF_RANGE, "min", 1, "max", maxPages));
+            return true;
+        }
+        pageManager.switchToPage(player, page - 1);
+        sender.sendMessage(messageManager.get(MessageKeys.Command.GOTO_SUCCESS, "page", page));
+        return true;
+    }
+
     /**
      * 发送帮助信息
      */
@@ -361,6 +392,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         sender.sendMessage(messageManager.get(MessageKeys.Command.HELP_RELOAD));
         sender.sendMessage(messageManager.get(MessageKeys.Command.HELP_INFO));
         sender.sendMessage(messageManager.get(MessageKeys.Command.HELP_BYPASS));
+        sender.sendMessage(messageManager.get(MessageKeys.Command.HELP_GOTO));
     }
 
     @Override
@@ -368,9 +400,14 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         List<String> completions = new ArrayList<>();
 
         if (args.length == 1) {
-            completions.addAll(Arrays.asList("forcereset", "opencontainer", "reload", "info", "bypass"));
+            completions.addAll(Arrays.asList("forcereset", "opencontainer", "reload", "info", "bypass", "goto"));
         } else if (args.length == 2) {
-            if (args[0].equalsIgnoreCase("opencontainer") || args[0].equalsIgnoreCase("info")) {
+            if (args[0].equalsIgnoreCase("goto")) {
+                int max = pageManager.getEffectiveMaxPages();
+                for (int i = 1; i <= Math.min(max, 20); i++) {
+                    completions.add(String.valueOf(i));
+                }
+            } else if (args[0].equalsIgnoreCase("opencontainer") || args[0].equalsIgnoreCase("info")) {
                 completions.addAll(Bukkit.getOnlinePlayers().stream()
                         .map(Player::getName)
                         .toList());
