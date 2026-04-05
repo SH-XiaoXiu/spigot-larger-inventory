@@ -42,9 +42,11 @@ public class PageNameDAO {
     }
 
     public void set(UUID uuid, int page, String name) throws SQLException {
+        String sql = db.isMysql()
+                ? "INSERT INTO page_names (uuid, page_number, page_name) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE page_name = VALUES(page_name)"
+                : "INSERT OR REPLACE INTO page_names (uuid, page_number, page_name) VALUES (?, ?, ?)";
         try (Connection conn = db.getConnection();
-             PreparedStatement ps = conn.prepareStatement(
-                     "INSERT OR REPLACE INTO page_names (uuid, page_number, page_name) VALUES (?, ?, ?)")) {
+             PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setString(1, uuid.toString());
             ps.setInt(2, page);
             ps.setString(3, name);

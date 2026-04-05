@@ -1,6 +1,7 @@
 plugins {
     id 'java'
     id("xyz.jpenilla.run-paper") version "2.3.1"
+    id("com.gradleup.shadow") version "8.3.5"
 }
 
 group = 'cn.xiuxius.mc'
@@ -53,13 +54,20 @@ repositories {
 dependencies {
     compileOnly("org.spigotmc:spigot-api:1.21.11-R0.1-SNAPSHOT")
     compileOnly("me.clip:placeholderapi:2.11.6")
+    implementation("com.zaxxer:HikariCP:5.1.0")
+    implementation("org.slf4j:slf4j-jdk14:2.0.9")
+}
+
+shadowJar {
+    relocate 'com.zaxxer.hikari', 'cn.xiuxius.mc.largerinventory.lib.hikari'
+    relocate 'org.slf4j', 'cn.xiuxius.mc.largerinventory.lib.slf4j'
 }
 
 tasks {
+    build {
+        dependsOn shadowJar
+    }
     runServer {
-        // Configure the Minecraft version for our task.
-        // This is the only required configuration besides applying the plugin.
-        // Your plugin's jar (or shadowJar if present) will be used automatically.
         minecraftVersion("1.21")
     }
 }
@@ -94,5 +102,5 @@ tasks.register('release') {
     group = 'build'
     description = 'Build with release version (tag-commit)'
 
-    dependsOn tasks.jar
+    dependsOn shadowJar
 }

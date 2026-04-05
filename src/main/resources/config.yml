@@ -39,6 +39,19 @@ features:
   # Cross-page death drop: items from all pages drop on death (syncs with keepInventory game rule)
   cross-page-death-drop: true
 
+# 数据库设置 / Database settings
+database:
+  # 类型: sqlite / mysql
+  type: sqlite
+  # MySQL 设置 (仅当 type 为 mysql 时有效)
+  mysql:
+    host: localhost
+    port: 3306
+    database: largerinventory
+    username: root
+    password: ""
+    pool-size: 10
+
 # 数据保护 / Data protection
 data:
   backup-retention-days: 7

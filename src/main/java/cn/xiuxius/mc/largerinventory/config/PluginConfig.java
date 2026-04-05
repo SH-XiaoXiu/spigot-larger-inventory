@@ -27,6 +27,13 @@ public final class PluginConfig {
     private final float pageTurnPitch;
     private final int prevCustomModelData;
     private final int nextCustomModelData;
+    private final String databaseType;
+    private final String mysqlHost;
+    private final int mysqlPort;
+    private final String mysqlDatabase;
+    private final String mysqlUsername;
+    private final String mysqlPassword;
+    private final int mysqlPoolSize;
 
     private PluginConfig(String language,
                          int prevButtonSlot, int nextButtonSlot,
@@ -34,7 +41,9 @@ public final class PluginConfig {
                          int maxPages, int backupRetentionDays, int autoSaveIntervalSeconds,
                          boolean crossPagePickup, boolean crossPageDeathDrop,
                          String pageTurnSound, float pageTurnVolume, float pageTurnPitch,
-                         int prevCustomModelData, int nextCustomModelData) {
+                         int prevCustomModelData, int nextCustomModelData,
+                         String databaseType, String mysqlHost, int mysqlPort,
+                         String mysqlDatabase, String mysqlUsername, String mysqlPassword, int mysqlPoolSize) {
         this.language = language;
         this.prevButtonSlot = prevButtonSlot;
         this.nextButtonSlot = nextButtonSlot;
@@ -50,6 +59,13 @@ public final class PluginConfig {
         this.pageTurnPitch = pageTurnPitch;
         this.prevCustomModelData = prevCustomModelData;
         this.nextCustomModelData = nextCustomModelData;
+        this.databaseType = databaseType;
+        this.mysqlHost = mysqlHost;
+        this.mysqlPort = mysqlPort;
+        this.mysqlDatabase = mysqlDatabase;
+        this.mysqlUsername = mysqlUsername;
+        this.mysqlPassword = mysqlPassword;
+        this.mysqlPoolSize = mysqlPoolSize;
     }
 
     /**
@@ -73,7 +89,14 @@ public final class PluginConfig {
                 (float) cfg.getDouble("buttons.page-turn-volume", 1.0),
                 (float) cfg.getDouble("buttons.page-turn-pitch", 1.0),
                 cfg.getInt("buttons.prev-custom-model-data", 0),
-                cfg.getInt("buttons.next-custom-model-data", 0)
+                cfg.getInt("buttons.next-custom-model-data", 0),
+                cfg.getString("database.type", "sqlite").toLowerCase(),
+                cfg.getString("database.mysql.host", "localhost"),
+                cfg.getInt("database.mysql.port", 3306),
+                cfg.getString("database.mysql.database", "largerinventory"),
+                cfg.getString("database.mysql.username", "root"),
+                cfg.getString("database.mysql.password", ""),
+                cfg.getInt("database.mysql.pool-size", 10)
         );
     }
 
@@ -148,5 +171,37 @@ public final class PluginConfig {
 
     public int getNextCustomModelData() {
         return nextCustomModelData;
+    }
+
+    public boolean isMysql() {
+        return "mysql".equals(databaseType);
+    }
+
+    public String getDatabaseType() {
+        return databaseType;
+    }
+
+    public String getMysqlHost() {
+        return mysqlHost;
+    }
+
+    public int getMysqlPort() {
+        return mysqlPort;
+    }
+
+    public String getMysqlDatabase() {
+        return mysqlDatabase;
+    }
+
+    public String getMysqlUsername() {
+        return mysqlUsername;
+    }
+
+    public String getMysqlPassword() {
+        return mysqlPassword;
+    }
+
+    public int getMysqlPoolSize() {
+        return mysqlPoolSize;
     }
 }

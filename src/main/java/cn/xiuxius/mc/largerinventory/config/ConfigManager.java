@@ -71,6 +71,20 @@ public class ConfigManager {
             logWarning(MessageKeys.Log.CONFIG_BUTTON_SLOTS_SAME, "slot", cfg.getPrevButtonSlot());
             return false;
         }
+        if (cfg.isMysql()) {
+            if (cfg.getMysqlHost() == null || cfg.getMysqlHost().isEmpty()) {
+                logWarning(MessageKeys.Log.DB_MYSQL_CONFIG_INVALID, "error", "host is empty");
+                return false;
+            }
+            if (cfg.getMysqlDatabase() == null || cfg.getMysqlDatabase().isEmpty()) {
+                logWarning(MessageKeys.Log.DB_MYSQL_CONFIG_INVALID, "error", "database is empty");
+                return false;
+            }
+            if (cfg.getMysqlPoolSize() < 1 || cfg.getMysqlPoolSize() > 50) {
+                logWarning(MessageKeys.Log.DB_MYSQL_CONFIG_INVALID, "error", "pool-size must be 1-50");
+                return false;
+            }
+        }
         return true;
     }
 

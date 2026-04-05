@@ -70,7 +70,7 @@ public final class LargerInventory extends JavaPlugin implements Reloadable {
         configManager.setMessageManager(messageManager);
 
         // 初始化数据库
-        databaseManager = new DatabaseManager(this, messageManager);
+        databaseManager = new DatabaseManager(this, messageManager, configManager.getConfig());
         databaseManager.init();
 
         // 初始化数据访问层

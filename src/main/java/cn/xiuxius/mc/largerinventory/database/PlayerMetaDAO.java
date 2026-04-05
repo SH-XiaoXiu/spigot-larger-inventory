@@ -47,19 +47,35 @@ public class PlayerMetaDAO {
      */
     public void upsert(UUID uuid, String playerName) throws SQLException {
         long now = System.currentTimeMillis();
-        String sql = "INSERT INTO player_meta (uuid, player_name, current_page, max_page, data_version, created_at, updated_at) " +
-                "VALUES (?, ?, 0, 0, ?, ?, ?) " +
-                "ON CONFLICT(uuid) DO UPDATE SET player_name = ?, updated_at = ?";
-        try (Connection conn = db.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            stmt.setString(1, uuid.toString());
-            stmt.setString(2, playerName);
-            stmt.setInt(3, DATA_VERSION);
-            stmt.setLong(4, now);
-            stmt.setLong(5, now);
-            stmt.setString(6, playerName);
-            stmt.setLong(7, now);
-            stmt.executeUpdate();
+        String sql;
+        if (db.isMysql()) {
+            sql = "INSERT INTO player_meta (uuid, player_name, current_page, max_page, data_version, created_at, updated_at) " +
+                    "VALUES (?, ?, 0, 0, ?, ?, ?) " +
+                    "ON DUPLICATE KEY UPDATE player_name = VALUES(player_name), updated_at = VALUES(updated_at)";
+            try (Connection conn = db.getConnection();
+                 PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setString(1, uuid.toString());
+                stmt.setString(2, playerName);
+                stmt.setInt(3, DATA_VERSION);
+                stmt.setLong(4, now);
+                stmt.setLong(5, now);
+                stmt.executeUpdate();
+            }
+        } else {
+            sql = "INSERT INTO player_meta (uuid, player_name, current_page, max_page, data_version, created_at, updated_at) " +
+                    "VALUES (?, ?, 0, 0, ?, ?, ?) " +
+                    "ON CONFLICT(uuid) DO UPDATE SET player_name = ?, updated_at = ?";
+            try (Connection conn = db.getConnection();
+                 PreparedStatement stmt = conn.prepareStatement(sql)) {
+                stmt.setString(1, uuid.toString());
+                stmt.setString(2, playerName);
+                stmt.setInt(3, DATA_VERSION);
+                stmt.setLong(4, now);
+                stmt.setLong(5, now);
+                stmt.setString(6, playerName);
+                stmt.setLong(7, now);
+                stmt.executeUpdate();
+            }
         }
     }
 

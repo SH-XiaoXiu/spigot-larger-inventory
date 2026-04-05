@@ -169,6 +169,8 @@ public final class MessageKeys {
         public static final String DB_MIGRATION_START = "log.db.migration-start";
         public static final String DB_MIGRATION_COMPLETE = "log.db.migration-complete";
         public static final String DB_MIGRATION_FAILED = "log.db.migration-failed";
+        public static final String DB_MYSQL_CONNECTED = "log.db.mysql-connected";
+        public static final String DB_MYSQL_CONFIG_INVALID = "log.db.mysql-config-invalid";
         // 玩家数据
         public static final String PLAYER_DATA_LOADED = "log.player.data-loaded";
         public static final String PLAYER_DATA_LOAD_FAILED = "log.player.data-load-failed";

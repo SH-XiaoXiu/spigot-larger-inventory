@@ -151,6 +151,8 @@ log:
     migration-start: "Starting database migration: v{from} → v{to}"
     migration-complete: "Database migration complete"
     migration-failed: "Database migration failed, rolled back"
+    mysql-connected: "MySQL database connected"
+    mysql-config-invalid: "Invalid MySQL configuration: {error}"
 
   player:
     data-loaded: "Player {player} data loaded, current page: {current}, used pages: {max}"
