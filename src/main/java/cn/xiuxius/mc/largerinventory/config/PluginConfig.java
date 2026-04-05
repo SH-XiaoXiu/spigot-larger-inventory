@@ -22,12 +22,16 @@ public final class PluginConfig {
     private final int autoSaveIntervalSeconds;
     private final boolean crossPagePickup;
     private final boolean crossPageDeathDrop;
+    private final String pageTurnSound;
+    private final float pageTurnVolume;
+    private final float pageTurnPitch;
 
     private PluginConfig(String language,
                          int prevButtonSlot, int nextButtonSlot,
                          Material prevButtonMaterial, Material nextButtonMaterial,
                          int maxPages, int backupRetentionDays, int autoSaveIntervalSeconds,
-                         boolean crossPagePickup, boolean crossPageDeathDrop) {
+                         boolean crossPagePickup, boolean crossPageDeathDrop,
+                         String pageTurnSound, float pageTurnVolume, float pageTurnPitch) {
         this.language = language;
         this.prevButtonSlot = prevButtonSlot;
         this.nextButtonSlot = nextButtonSlot;
@@ -38,12 +42,17 @@ public final class PluginConfig {
         this.autoSaveIntervalSeconds = autoSaveIntervalSeconds;
         this.crossPagePickup = crossPagePickup;
         this.crossPageDeathDrop = crossPageDeathDrop;
+        this.pageTurnSound = pageTurnSound;
+        this.pageTurnVolume = pageTurnVolume;
+        this.pageTurnPitch = pageTurnPitch;
     }
 
     /**
      * 从 Bukkit FileConfiguration 构造配置实例。
      */
     public static PluginConfig from(FileConfiguration cfg) {
+        String rawSound = cfg.getString("buttons.page-turn-sound", "UI_BUTTON_CLICK");
+        String pageTurnSound = (rawSound == null || rawSound.equalsIgnoreCase("NONE")) ? null : rawSound;
         return new PluginConfig(
                 cfg.getString("language", "zh_CN"),
                 cfg.getInt("buttons.prev-page-slot", 27),
@@ -54,7 +63,10 @@ public final class PluginConfig {
                 cfg.getInt("data.backup-retention-days", 7),
                 cfg.getInt("data.auto-save-interval-seconds", 300),
                 cfg.getBoolean("features.cross-page-pickup", true),
-                cfg.getBoolean("features.cross-page-death-drop", true)
+                cfg.getBoolean("features.cross-page-death-drop", true),
+                pageTurnSound,
+                (float) cfg.getDouble("buttons.page-turn-volume", 1.0),
+                (float) cfg.getDouble("buttons.page-turn-pitch", 1.0)
         );
     }
 
@@ -109,5 +121,17 @@ public final class PluginConfig {
 
     public boolean isCrossPageDeathDrop() {
         return crossPageDeathDrop;
+    }
+
+    public String getPageTurnSound() {
+        return pageTurnSound;
+    }
+
+    public float getPageTurnVolume() {
+        return pageTurnVolume;
+    }
+
+    public float getPageTurnPitch() {
+        return pageTurnPitch;
     }
 }

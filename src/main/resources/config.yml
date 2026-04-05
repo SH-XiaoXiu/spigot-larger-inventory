@@ -13,6 +13,12 @@ buttons:
   prev-material: "ARROW"
   next-material: "ARROW"
 
+  # 翻页音效 / Page turn sound
+  # 设为 "NONE" 可禁用 / Set to "NONE" to disable
+  page-turn-sound: "UI_BUTTON_CLICK"
+  page-turn-volume: 1.0
+  page-turn-pitch: 1.0
+
 # 分页限制 / Page limits
 limits:
   # 0表示使用插件最大限制 (99页) / 0 = use maximum limit (99 pages)

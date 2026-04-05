@@ -120,6 +120,7 @@ public final class MessageKeys {
         public static final String CONFIG_VALIDATION_FAILED = "log.config.validation-failed";
         public static final String CONFIG_BUTTON_SLOT_INVALID = "log.config.button-slot-invalid";
         public static final String CONFIG_BUTTON_SLOTS_SAME = "log.config.button-slots-same";
+        public static final String SOUND_INVALID = "log.config.sound-invalid";
         // 数据库
         public static final String DB_INIT_COMPLETE = "log.db.init-complete";
         public static final String DB_DRIVER_NOT_FOUND = "log.db.driver-not-found";

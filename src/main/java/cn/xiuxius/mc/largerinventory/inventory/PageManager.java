@@ -11,6 +11,7 @@ import cn.xiuxius.mc.largerinventory.database.model.PlayerMeta;
 import cn.xiuxius.mc.largerinventory.i18n.MessageKeys;
 import cn.xiuxius.mc.largerinventory.i18n.MessageManager;
 import org.bukkit.Bukkit;
+import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -142,6 +143,7 @@ public class PageManager implements Reloadable {
         if (cached != null) {
             loadItemsToInventory(player, cached);
             updateButtons(player, targetPage, data.maxPage);
+            playPageTurnSound(player);
             data.switching = false;
             return;
         }
@@ -155,6 +157,7 @@ public class PageManager implements Reloadable {
                     data.cache.put(targetPage, items);
                     loadItemsToInventory(player, items);
                     updateButtons(player, targetPage, data.maxPage);
+                    playPageTurnSound(player);
                 });
             } catch (SQLException e) {
                 plugin.getLogger().severe(messageManager.getLog(MessageKeys.Log.PAGE_LOAD_FAILED,
@@ -425,6 +428,18 @@ public class PageManager implements Reloadable {
         int configured = configManager.getConfig().getMaxPages();
         if (configured <= 0) return MAX_PAGES_HARD_LIMIT;
         return Math.min(configured, MAX_PAGES_HARD_LIMIT);
+    }
+
+    private void playPageTurnSound(Player player) {
+        PluginConfig cfg = configManager.getConfig();
+        String soundName = cfg.getPageTurnSound();
+        if (soundName == null) return;
+        try {
+            Sound sound = Sound.valueOf(soundName);
+            player.playSound(player.getLocation(), sound, cfg.getPageTurnVolume(), cfg.getPageTurnPitch());
+        } catch (IllegalArgumentException e) {
+            plugin.getLogger().warning(messageManager.getLog(MessageKeys.Log.SOUND_INVALID, "sound", soundName));
+        }
     }
 
     // 工具

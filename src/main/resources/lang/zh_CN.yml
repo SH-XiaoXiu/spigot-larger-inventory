@@ -104,6 +104,7 @@ log:
     validation-failed: "配置验证失败，插件将禁用！"
     button-slot-invalid: "{button}按钮位置无效: {slot}，必须在9-35范围内"
     button-slots-same: "两个按钮位置不能相同: {slot}"
+    sound-invalid: "无效的音效名称: {sound}，已禁用翻页音效"
 
   db:
     init-complete: "数据库初始化完成: {path} (版本: {version})"

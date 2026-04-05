@@ -104,6 +104,7 @@ log:
     validation-failed: "Configuration validation failed, plugin will be disabled!"
     button-slot-invalid: "Invalid {button} button slot: {slot}, must be between 9-35"
     button-slots-same: "Both button slots cannot be the same: {slot}"
+    sound-invalid: "Invalid sound name: {sound}, page turn sound disabled"
 
   db:
     init-complete: "Database initialized: {path} (version: {version})"
