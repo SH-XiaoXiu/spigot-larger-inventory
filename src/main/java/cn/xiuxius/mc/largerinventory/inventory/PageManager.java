@@ -207,6 +207,8 @@ public class PageManager implements Reloadable {
                         overflowHandler.accept(player, overflow);
                         player.sendMessage(messageManager.get(MessageKeys.Player.ITEMS_PENDING, "count", overflow.size()));
                         player.sendMessage(messageManager.get(MessageKeys.Player.RETRIEVE_HINT));
+                    } else {
+                        player.sendMessage(messageManager.get(MessageKeys.Player.OVERFLOW_REORGANIZED));
                     }
                 });
             } catch (SQLException e) {

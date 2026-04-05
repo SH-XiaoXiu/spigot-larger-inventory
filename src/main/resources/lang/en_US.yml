@@ -104,6 +104,7 @@ player:
   retrieve-hint: "&eUse /li opencontainer to open the handover container and retrieve your items."
   creative-overflow: "&6Left creative mode: {count} items could not fit in your inventory and have been stored in the handover container."
   overflow-pending: "&eInventory reorganization pending. Please close your current container."
+  overflow-reorganized: "&aPage limit changed. Your inventory has been reorganized."
 
 # ==================== Button UI ====================
 button:

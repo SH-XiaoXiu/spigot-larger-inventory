@@ -104,6 +104,7 @@ player:
   retrieve-hint: "&e使用 /li opencontainer 打开交接容器取回物品。"
   creative-overflow: "&6离开创造模式：{count} 个物品无法放入背包，已存入交接容器。"
   overflow-pending: "&e背包正在整理中，请关闭当前容器后自动处理。"
+  overflow-reorganized: "&a页数限制已变更，背包物品已自动整理。"
 
 # ==================== 按钮界面 ====================
 button:

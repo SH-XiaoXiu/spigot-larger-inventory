@@ -114,6 +114,7 @@ public final class MessageKeys {
         public static final String RETRIEVE_HINT = "player.retrieve-hint";
         public static final String CREATIVE_OVERFLOW = "player.creative-overflow";
         public static final String OVERFLOW_PENDING = "player.overflow-pending";
+        public static final String OVERFLOW_REORGANIZED = "player.overflow-reorganized";
 
         private Player() {
         }
