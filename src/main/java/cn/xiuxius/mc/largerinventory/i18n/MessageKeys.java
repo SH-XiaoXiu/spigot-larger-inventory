@@ -113,6 +113,7 @@ public final class MessageKeys {
         public static final String ITEMS_PENDING = "player.items-pending";
         public static final String RETRIEVE_HINT = "player.retrieve-hint";
         public static final String CREATIVE_OVERFLOW = "player.creative-overflow";
+        public static final String OVERFLOW_PENDING = "player.overflow-pending";
 
         private Player() {
         }

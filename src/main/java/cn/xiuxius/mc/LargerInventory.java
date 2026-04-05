@@ -176,7 +176,7 @@ public final class LargerInventory extends JavaPlugin implements Reloadable {
 
         // 交接容器监听器
         getServer().getPluginManager().registerEvents(
-                new HandoverContainerListener(this, handoverContainerManager), this);
+                new HandoverContainerListener(this, handoverContainerManager, pageManager), this);
 
         // 游戏模式切换监听器（离开创造模式时修复按钮槽）
         getServer().getPluginManager().registerEvents(
