@@ -45,6 +45,7 @@ command:
     specify-player: "&cPlease specify a player: /li info <player>"
     data-not-found: "&cPlayer data not found: {player}"
     get-failed: "&cFailed to get player info: {error}"
+    effective-limit: "&eEffective Page Limit: &f{limit}"
 
   bypass:
     creative-only: "&cBypass mode can only be used in creative mode."

@@ -9,9 +9,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
-import org.bukkit.inventory.ItemStack;
-
-import java.util.List;
 
 /**
  * 玩家加入事件监听器
@@ -34,11 +31,8 @@ public class PlayerJoinListener implements Listener {
         Player player = event.getPlayer();
         // 初始化玩家数据
         pageManager.initPlayer(player);
-        // 处理按钮位置冲突，无处安放的物品送交接容器
-        List<ItemStack> unplaceable = pageManager.handleButtonSlotConflict(player);
-        if (!unplaceable.isEmpty()) {
-            handoverManager.createContainer(player, unplaceable);
-        }
+        // 统一处理溢出物品（按钮槽冲突 + 页数限制超出）
+        pageManager.processOverflow(player);
 
         // 检查是否有交接容器待领取
         if (handoverManager.hasContainer(player.getUniqueId())) {

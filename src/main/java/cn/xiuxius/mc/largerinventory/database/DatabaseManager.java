@@ -84,6 +84,7 @@ public class DatabaseManager {
             stmt.execute("PRAGMA journal_mode=WAL");
             stmt.execute("PRAGMA synchronous=NORMAL");
             stmt.execute("PRAGMA foreign_keys=ON");
+            stmt.execute("PRAGMA busy_timeout=5000");
         } catch (SQLException e) {
             conn.close();
             throw e;

@@ -204,20 +204,24 @@ public class HandoverContainerManager {
     public void onItemTaken(Player player, int rawSlot) {
         if (rawSlot >= ITEMS_PER_PAGE) return; // 导航槽位，忽略
         UUID uuid = player.getUniqueId();
-        try {
-            Map<Integer, Integer> playerSlotMap = slotMapping.get(uuid);
-            if (playerSlotMap == null) {
-                dao.remove(uuid, rawSlot); // 兜底
-                return;
-            }
-            Integer dbSlot = playerSlotMap.get(rawSlot);
-            if (dbSlot == null) return;
-            dao.remove(uuid, dbSlot);
+        Map<Integer, Integer> playerSlotMap = slotMapping.get(uuid);
+        int dbSlot;
+        if (playerSlotMap == null) {
+            dbSlot = rawSlot; // 兜底
+        } else {
+            Integer mapped = playerSlotMap.get(rawSlot);
+            if (mapped == null) return;
+            dbSlot = mapped;
             playerSlotMap.remove(rawSlot);
-            plugin.getLogger().fine(messageManager.getLog(MessageKeys.Log.HANDOVER_ITEM_TAKEN, "player", player.getName(), "slot", rawSlot));
-        } catch (SQLException e) {
-            plugin.getLogger().warning(messageManager.getLog(MessageKeys.Log.HANDOVER_UPDATE_FAILED, "error", e.getMessage()));
         }
+        plugin.getLogger().fine(messageManager.getLog(MessageKeys.Log.HANDOVER_ITEM_TAKEN, "player", player.getName(), "slot", rawSlot));
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                dao.remove(uuid, dbSlot);
+            } catch (SQLException e) {
+                plugin.getLogger().warning(messageManager.getLog(MessageKeys.Log.HANDOVER_UPDATE_FAILED, "error", e.getMessage()));
+            }
+        });
     }
 
     /**
@@ -241,16 +245,18 @@ public class HandoverContainerManager {
      */
     public void destroyContainer(Player player) {
         UUID uuid = player.getUniqueId();
-        try {
-            dao.clear(uuid);
-            openContainers.remove(uuid);
-            slotMapping.remove(uuid);
-            playerCurrentPage.remove(uuid);
-            plugin.getLogger().info(messageManager.getLog(MessageKeys.Log.HANDOVER_DESTROYED, "player", player.getName()));
-            player.sendMessage(messageManager.get(MessageKeys.Handover.ALL_RETRIEVED));
-        } catch (SQLException e) {
-            plugin.getLogger().severe(messageManager.getLog(MessageKeys.Log.HANDOVER_UPDATE_FAILED, "error", e.getMessage()));
-        }
+        openContainers.remove(uuid);
+        slotMapping.remove(uuid);
+        playerCurrentPage.remove(uuid);
+        player.sendMessage(messageManager.get(MessageKeys.Handover.ALL_RETRIEVED));
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                dao.clear(uuid);
+                plugin.getLogger().info(messageManager.getLog(MessageKeys.Log.HANDOVER_DESTROYED, "player", player.getName()));
+            } catch (SQLException e) {
+                plugin.getLogger().severe(messageManager.getLog(MessageKeys.Log.HANDOVER_UPDATE_FAILED, "error", e.getMessage()));
+            }
+        });
     }
 
     /**
@@ -263,16 +269,20 @@ public class HandoverContainerManager {
         openContainers.remove(uuid);
         slotMapping.remove(uuid);
 
-        // 检查是否为空
-        try {
-            if (dao.isEmpty(uuid)) {
-                dao.clear(uuid);
-                playerCurrentPage.remove(uuid);
-                plugin.getLogger().info(messageManager.getLog(MessageKeys.Log.HANDOVER_AUTO_DESTROYED, "player", player.getName()));
+        // 异步检查是否为空
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                if (dao.isEmpty(uuid)) {
+                    dao.clear(uuid);
+                    plugin.getServer().getScheduler().runTask(plugin, () -> {
+                        playerCurrentPage.remove(uuid);
+                        plugin.getLogger().info(messageManager.getLog(MessageKeys.Log.HANDOVER_AUTO_DESTROYED, "player", player.getName()));
+                    });
+                }
+            } catch (SQLException e) {
+                plugin.getLogger().warning(messageManager.getLog(MessageKeys.Log.HANDOVER_STATUS_CHECK_FAILED, "error", e.getMessage()));
             }
-        } catch (SQLException e) {
-            plugin.getLogger().warning(messageManager.getLog(MessageKeys.Log.HANDOVER_STATUS_CHECK_FAILED, "error", e.getMessage()));
-        }
+        });
     }
 
     /**

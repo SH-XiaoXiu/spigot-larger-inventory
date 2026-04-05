@@ -51,6 +51,7 @@ public final class MessageKeys {
         public static final String INFO_SPECIFY_PLAYER = "command.info.specify-player";
         public static final String INFO_DATA_NOT_FOUND = "command.info.data-not-found";
         public static final String INFO_GET_FAILED = "command.info.get-failed";
+        public static final String INFO_EFFECTIVE_LIMIT = "command.info.effective-limit";
         // bypass 命令
         public static final String BYPASS_CREATIVE_ONLY = "command.bypass.creative-only";
         public static final String BYPASS_ENABLED = "command.bypass.enabled";

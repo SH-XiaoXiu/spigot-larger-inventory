@@ -11,10 +11,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerGameModeChangeEvent;
-import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
-
-import java.util.List;
 
 /**
  * 监听游戏模式切换。
@@ -54,11 +51,12 @@ public class PlayerGameModeChangeListener implements Listener {
         // 延迟一 tick：确保游戏模式已实际切换，背包操作在新模式下执行
         plugin.getServer().getScheduler().runTask(plugin, () -> {
             if (!player.isOnline()) return;
-            // 处理按钮槽冲突（创造模式可能在按钮槽放了物品）
-            List<ItemStack> unplaceable = pageManager.handleButtonSlotConflict(player);
-            if (!unplaceable.isEmpty()) {
-                handoverManager.createContainer(player, unplaceable);
-                player.sendMessage(messageManager.get(MessageKeys.Player.CREATIVE_OVERFLOW, "count", unplaceable.size()));
+            // 统一处理溢出物品（按钮槽冲突 + 页数限制超出）
+            int beforeCount = handoverManager.getContainerItemCount(player.getUniqueId());
+            pageManager.processOverflow(player);
+            int afterCount = handoverManager.getContainerItemCount(player.getUniqueId());
+            if (afterCount > beforeCount) {
+                player.sendMessage(messageManager.get(MessageKeys.Player.CREATIVE_OVERFLOW, "count", afterCount - beforeCount));
                 player.sendMessage(messageManager.get(MessageKeys.Player.RETRIEVE_HINT));
             }
             // 恢复翻页按钮

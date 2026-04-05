@@ -1,7 +1,6 @@
 package cn.xiuxius.mc.largerinventory.command;
 
 import cn.xiuxius.mc.largerinventory.config.ConfigManager;
-import cn.xiuxius.mc.largerinventory.config.PluginConfig;
 import cn.xiuxius.mc.largerinventory.config.ReloadCoordinator;
 import cn.xiuxius.mc.largerinventory.database.PageItemDAO;
 import cn.xiuxius.mc.largerinventory.database.PlayerMetaDAO;
@@ -165,65 +164,13 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
         }
         int maxPage = meta.getMaxPage();
 
-        // 加载所有物品
-        Map<Integer, Map<Integer, ItemStack>> allItems = pageItemDao.loadAll(uuid);
-
-        // 计算限制内的总容量
-        int slotsPerPage = 36 - 2;
-        int allowedSlots = configMaxPages * slotsPerPage;
-
-        // 收集所有物品
-        List<ItemStack> allItemsList = new ArrayList<>();
-        for (int page = 0; page <= maxPage; page++) {
-            Map<Integer, ItemStack> pageItems = allItems.get(page);
-            if (pageItems != null) {
-                allItemsList.addAll(pageItems.values());
-            }
-        }
-
-        // 分离在限制内和超出的物品
-        List<ItemStack> keptItems = new ArrayList<>();
-        List<ItemStack> overflowItems = new ArrayList<>();
-
-        for (int i = 0; i < allItemsList.size(); i++) {
-            if (i < allowedSlots) {
-                keptItems.add(allItemsList.get(i));
-            } else {
-                overflowItems.add(allItemsList.get(i));
-            }
-        }
-
-        // 重新分配物品到限制内的页
-        PluginConfig cfg = configManager.getConfig();
-        int prevSlot = cfg.getPrevButtonSlot();
-        int nextSlot = cfg.getNextButtonSlot();
-
-        for (int page = 0; page < configMaxPages; page++) {
-            Map<Integer, ItemStack> pageItems = new HashMap<>();
-            int pageStart = page * slotsPerPage;
-            int pageEnd = Math.min(pageStart + slotsPerPage, keptItems.size());
-
-            int slot = 9;
-            for (int i = pageStart; i < pageEnd; i++) {
-                while (slot == prevSlot || slot == nextSlot) {
-                    slot++;
-                }
-                if (slot > 35) break;
-                pageItems.put(slot, keptItems.get(i));
-                slot++;
-            }
-
-            pageItemDao.savePage(uuid, page, pageItems);
-        }
-
-        // 删除超出页的数据
-        pageItemDao.deleteFrom(uuid, configMaxPages);
+        List<ItemStack> overflowItems = pageManager.redistributeItems(uuid, configMaxPages, maxPage);
 
         // 更新玩家元数据
         int newMaxPage = Math.min(maxPage, configMaxPages - 1);
         metaDao.update(uuid, 0, newMaxPage);
 
-        // 如果有超出物品，创建交接容器（纯数据库操作）
+        // 如果有超出物品，创建交接容器
         if (!overflowItems.isEmpty()) {
             handoverManager.createContainer(uuid, playerName, overflowItems);
         }
@@ -324,15 +271,14 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
      * 查看玩家信息
      */
     private boolean handleInfo(CommandSender sender, String[] args) {
-        if (!sender.hasPermission("largerinventory.admin.info")) {
-            sender.sendMessage(messageManager.get(MessageKeys.Command.NO_PERMISSION));
-            return true;
-        }
-
         UUID uuid;
         String playerName;
 
         if (args.length >= 2) {
+            if (!sender.hasPermission("largerinventory.admin.info")) {
+                sender.sendMessage(messageManager.get(MessageKeys.Command.NO_PERMISSION));
+                return true;
+            }
             // 优先尝试获取在线玩家
             Player onlinePlayer = Bukkit.getPlayer(args[1]);
             if (onlinePlayer != null) {
@@ -354,6 +300,10 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
                 }
             }
         } else if (sender instanceof Player player) {
+            if (!sender.hasPermission("largerinventory.player.info")) {
+                sender.sendMessage(messageManager.get(MessageKeys.Command.NO_PERMISSION));
+                return true;
+            }
             uuid = player.getUniqueId();
             playerName = player.getName();
         } else {
@@ -376,6 +326,9 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_CURRENT_PAGE, "page", currentPage + 1));
             sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_MAX_PAGE, "page", maxPage + 1));
             sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_CONFIG_LIMIT, "limit", configMaxPages <= 0 ? "无限制" : String.valueOf(configMaxPages)));
+            Player onlineTarget = Bukkit.getPlayer(uuid);
+            int effectiveLimit = onlineTarget != null ? pageManager.getEffectiveMaxPages(onlineTarget) : pageManager.getEffectiveMaxPages();
+            sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_EFFECTIVE_LIMIT, "limit", effectiveLimit));
 
             // 检查交接容器
             int handoverCount = handoverManager.getContainerItemCount(uuid);

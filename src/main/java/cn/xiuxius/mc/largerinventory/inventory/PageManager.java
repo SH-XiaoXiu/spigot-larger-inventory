@@ -19,6 +19,7 @@ import org.bukkit.plugin.java.JavaPlugin;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.BiConsumer;
 
 /**
  * 分页管理器（内存优先 + 写回缓存模型）
@@ -43,6 +44,7 @@ public class PageManager implements Reloadable {
     private final PageItemDAO pageItemDao;
 
     private final Map<UUID, PlayerPageData> playerDataCache = new ConcurrentHashMap<>();
+    private BiConsumer<Player, List<ItemStack>> overflowHandler;
 
     // 按钮点击防重与冷却
     private final Map<UUID, Integer> tickPacketCount = new HashMap<>();
@@ -58,6 +60,13 @@ public class PageManager implements Reloadable {
         this.messageManager = messageManager;
         this.metaDao = metaDao;
         this.pageItemDao = pageItemDao;
+    }
+
+    /**
+     * 设置溢出物品处理器，用于将溢出物品送入交接容器。
+     */
+    public void setOverflowHandler(BiConsumer<Player, List<ItemStack>> handler) {
+        this.overflowHandler = handler;
     }
 
     public void initPlayer(Player player) {
@@ -90,6 +99,121 @@ public class PageManager implements Reloadable {
         }
     }
 
+    /**
+     * 统一处理所有溢出物品（按钮槽冲突 + 页数限制超出）。
+     * 按钮冲突为同步处理；页数限制超出的 DB 操作异步执行。
+     * 溢出物品通过 overflowHandler 送入交接容器。
+     */
+    public void processOverflow(Player player) {
+        // 1. 按钮槽冲突（同步，纯内存/背包操作）
+        List<ItemStack> buttonOverflow = handleButtonSlotConflict(player);
+        if (!buttonOverflow.isEmpty() && overflowHandler != null) {
+            overflowHandler.accept(player, buttonOverflow);
+        }
+
+        // 2. 页数限制超出（异步 DB 操作）
+        handlePageLimitOverflow(player);
+    }
+
+    private void handlePageLimitOverflow(Player player) {
+        UUID uuid = player.getUniqueId();
+        PlayerPageData data = playerDataCache.get(uuid);
+        if (data == null) return;
+
+        int effectiveMax = getEffectiveMaxPages(player);
+        if (data.maxPage < effectiveMax) return;
+
+        // 先调整内存状态（主线程）
+        int oldMaxPage = data.maxPage;
+        int newMaxPage = effectiveMax - 1;
+        data.maxPage = newMaxPage;
+        if (data.currentPage >= effectiveMax) {
+            data.currentPage = newMaxPage;
+            // 加载新当前页（如果缓存中有）
+            Map<Integer, ItemStack> cached = data.cache.get(newMaxPage);
+            if (cached != null) {
+                clearInventoryMain(player);
+                loadItemsToInventory(player, cached);
+            }
+            updateButtons(player, newMaxPage, newMaxPage);
+        }
+
+        // 异步处理 DB 操作
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                List<ItemStack> overflow = redistributeItems(uuid, effectiveMax, oldMaxPage);
+                metaDao.update(uuid, data.currentPage, newMaxPage);
+
+                // 异步线程内预加载当前页
+                Map<Integer, ItemStack> currentItems = pageItemDao.loadPage(uuid, data.currentPage);
+
+                // 回到主线程：刷新显示 + 交接 + 通知
+                plugin.getServer().getScheduler().runTask(plugin, () -> {
+                    if (!player.isOnline()) return;
+                    data.cache.put(data.currentPage, currentItems);
+                    clearInventoryMain(player);
+                    loadItemsToInventory(player, currentItems);
+                    updateButtons(player, data.currentPage, newMaxPage);
+                    if (!overflow.isEmpty() && overflowHandler != null) {
+                        overflowHandler.accept(player, overflow);
+                        player.sendMessage(messageManager.get(MessageKeys.Player.ITEMS_PENDING, "count", overflow.size()));
+                        player.sendMessage(messageManager.get(MessageKeys.Player.RETRIEVE_HINT));
+                    }
+                });
+            } catch (SQLException e) {
+                plugin.getLogger().severe(messageManager.getLog(MessageKeys.Log.PLAYER_DATA_SAVE_FAILED,
+                        "uuid", uuid, "error", e.getMessage()));
+            }
+        });
+    }
+
+    /**
+     * 将玩家物品重新分配到限制页数内，超出的物品作为溢出返回。
+     * 纯数据库操作，可在异步线程调用。
+     *
+     * @param uuid       玩家UUID
+     * @param maxPages   允许的最大页数
+     * @param oldMaxPage 原来的最大页码
+     * @return 无法放入的溢出物品
+     */
+    public List<ItemStack> redistributeItems(UUID uuid, int maxPages, int oldMaxPage) throws SQLException {
+        Map<Integer, Map<Integer, ItemStack>> allItems = pageItemDao.loadAll(uuid);
+        PluginConfig cfg = configManager.getConfig();
+        int prevSlot = cfg.getPrevButtonSlot();
+        int nextSlot = cfg.getNextButtonSlot();
+
+        // 收集所有物品（按页序）
+        List<ItemStack> allItemsList = new ArrayList<>();
+        for (int page = 0; page <= oldMaxPage; page++) {
+            Map<Integer, ItemStack> pageItems = allItems.get(page);
+            if (pageItems != null) {
+                allItemsList.addAll(pageItems.values());
+            }
+        }
+
+        // 重新分配到限制内的页
+        List<ItemStack> overflow = new ArrayList<>();
+        int itemIdx = 0;
+        for (int page = 0; page < maxPages; page++) {
+            Map<Integer, ItemStack> pageItems = new HashMap<>();
+            for (int slot = 9; slot <= 35 && itemIdx < allItemsList.size(); slot++) {
+                if (slot == prevSlot || slot == nextSlot) continue;
+                pageItems.put(slot, allItemsList.get(itemIdx++));
+            }
+            pageItemDao.savePage(uuid, page, pageItems);
+        }
+
+        // 剩余的进溢出列表
+        while (itemIdx < allItemsList.size()) {
+            overflow.add(allItemsList.get(itemIdx++));
+        }
+
+        // 删除超出页
+        pageItemDao.deleteFrom(uuid, maxPages);
+
+        return overflow;
+    }
+
     public void saveAndClearPlayer(Player player) {
         UUID uuid = player.getUniqueId();
         PlayerPageData data = playerDataCache.get(uuid);
@@ -109,7 +233,7 @@ public class PageManager implements Reloadable {
 
     public void nextPage(Player player) {
         PlayerPageData data = playerDataCache.get(player.getUniqueId());
-        if (data != null && data.currentPage < getEffectiveMaxPages() - 1) {
+        if (data != null && data.currentPage < getEffectiveMaxPages(player) - 1) {
             switchToPage(player, data.currentPage + 1);
         }
     }
@@ -121,14 +245,14 @@ public class PageManager implements Reloadable {
 
     public boolean canNextPage(Player player) {
         PlayerPageData data = playerDataCache.get(player.getUniqueId());
-        return data != null && !data.switching && data.currentPage < getEffectiveMaxPages() - 1;
+        return data != null && !data.switching && data.currentPage < getEffectiveMaxPages(player) - 1;
     }
 
     public void switchToPage(Player player, int targetPage) {
         UUID uuid = player.getUniqueId();
         PlayerPageData data = playerDataCache.get(uuid);
         if (data == null || data.switching) return;
-        if (targetPage < 0 || targetPage >= getEffectiveMaxPages()) return;
+        if (targetPage < 0 || targetPage >= getEffectiveMaxPages(player)) return;
 
         data.switching = true;
         snapshotToCache(player, data);
@@ -365,8 +489,8 @@ public class PageManager implements Reloadable {
                     player.getInventory().setItem(i, null);
                 }
             }
-            // 2. 将新按钮槽位中的普通物品移走
-            handleButtonSlotConflict(player);
+            // 2. 统一处理溢出物品（按钮槽冲突 + 页数限制超出）
+            processOverflow(player);
             // 3. 在新槽位放置刷新后的按钮
             restoreButtons(player);
         }
@@ -385,7 +509,7 @@ public class PageManager implements Reloadable {
             return;
         }
         boolean canPrev = currentPage > 0;
-        boolean canNext = currentPage < getEffectiveMaxPages() - 1;
+        boolean canNext = currentPage < getEffectiveMaxPages(player) - 1;
         player.getInventory().setItem(cfg.getPrevButtonSlot(),
                 buttonManager.createPrevButton(currentPage, canPrev));
         player.getInventory().setItem(cfg.getNextButtonSlot(),
@@ -428,6 +552,25 @@ public class PageManager implements Reloadable {
         int configured = configManager.getConfig().getMaxPages();
         if (configured <= 0) return MAX_PAGES_HARD_LIMIT;
         return Math.min(configured, MAX_PAGES_HARD_LIMIT);
+    }
+
+    public int getEffectiveMaxPages(Player player) {
+        int base = getEffectiveMaxPages();
+        if (player == null) return base;
+        int permMax = -1;
+        for (org.bukkit.permissions.PermissionAttachmentInfo pai : player.getEffectivePermissions()) {
+            String perm = pai.getPermission();
+            if (pai.getValue() && perm.startsWith("largerinventory.pages.")) {
+                try {
+                    int n = Integer.parseInt(perm.substring("largerinventory.pages.".length()));
+                    if (n > permMax) permMax = n;
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+        if (permMax > 0) {
+            return Math.min(permMax, base);
+        }
+        return base;
     }
 
     private void playPageTurnSound(Player player) {
@@ -483,7 +626,7 @@ public class PageManager implements Reloadable {
             if (!leftover.isEmpty()) {
                 PlayerPageData data = playerDataCache.get(uuid);
                 int nextPage = (data != null ? data.maxPage : 0) + 1;
-                if (nextPage < getEffectiveMaxPages()) {
+                if (nextPage < getEffectiveMaxPages(player)) {
                     Map<Integer, ItemStack> overflowMap = new HashMap<>();
                     int i = 9;
                     for (ItemStack overflow : leftover.values()) overflowMap.put(i++, overflow);
@@ -527,7 +670,7 @@ public class PageManager implements Reloadable {
         remaining = tryStackInCachedPages(uuid, item, remaining, data, prevSlot, nextSlot);
         if (remaining <= 0) return 0;
 
-        remaining = tryPlaceInCachedPagesEmpty(uuid, item, remaining, data, prevSlot, nextSlot);
+        remaining = tryPlaceInCachedPagesEmpty(player, item, remaining, data, prevSlot, nextSlot);
         return remaining;
     }
 
@@ -640,9 +783,9 @@ public class PageManager implements Reloadable {
         return remaining;
     }
 
-    private int tryPlaceInCachedPagesEmpty(UUID uuid, ItemStack item, int remaining,
+    private int tryPlaceInCachedPagesEmpty(Player player, ItemStack item, int remaining,
                                            PlayerPageData data, int prevSlot, int nextSlot) {
-        int maxPageToCheck = getEffectiveMaxPages() - 1;
+        int maxPageToCheck = getEffectiveMaxPages(player) - 1;
         for (int page = 0; page <= maxPageToCheck && remaining > 0; page++) {
             if (page == data.currentPage) continue;
             Map<Integer, ItemStack> pageItems = data.cache.get(page);

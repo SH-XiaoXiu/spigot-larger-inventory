@@ -82,6 +82,9 @@ public final class LargerInventory extends JavaPlugin implements Reloadable {
         // 初始化交接容器管理器
         handoverContainerManager = new HandoverContainerManager(this, messageManager, handoverDAO);
 
+        // 注册溢出物品处理器
+        pageManager.setOverflowHandler((player, items) -> handoverContainerManager.createContainer(player, items));
+
         // 初始化 bypass 管理器
         bypassManager = new BypassManager();
 
@@ -104,7 +107,7 @@ public final class LargerInventory extends JavaPlugin implements Reloadable {
         // 初始化在线玩家
         for (Player player : Bukkit.getOnlinePlayers()) {
             pageManager.initPlayer(player);
-            pageManager.handleButtonSlotConflict(player);
+            pageManager.processOverflow(player);
         }
 
         getLogger().info(messageManager.getLog(MessageKeys.Log.PLUGIN_ENABLED));
