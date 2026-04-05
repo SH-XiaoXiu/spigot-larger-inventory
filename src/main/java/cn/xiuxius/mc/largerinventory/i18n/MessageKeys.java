@@ -58,6 +58,7 @@ public final class MessageKeys {
         public static final String INFO_DATA_NOT_FOUND = "command.info.data-not-found";
         public static final String INFO_GET_FAILED = "command.info.get-failed";
         public static final String INFO_EFFECTIVE_LIMIT = "command.info.effective-limit";
+        public static final String INFO_NO_LIMIT = "command.info.no-limit";
         // bypass 命令
         public static final String BYPASS_CREATIVE_ONLY = "command.bypass.creative-only";
         public static final String BYPASS_ENABLED = "command.bypass.enabled";
@@ -134,6 +135,13 @@ public final class MessageKeys {
         public static final String CONFIG_BUTTON_SLOT_INVALID = "log.config.button-slot-invalid";
         public static final String CONFIG_BUTTON_SLOTS_SAME = "log.config.button-slots-same";
         public static final String SOUND_INVALID = "log.config.sound-invalid";
+        // 通用日志
+        public static final String PLAYER_PROCESSING_ERROR = "log.player.processing-error";
+        public static final String BUTTON_CONFLICT_SAVE_FAILED = "log.page.button-conflict-save-failed";
+        public static final String CROSS_PAGE_PRELOAD_FAILED = "log.page.cross-page-preload-failed";
+        public static final String ALL_PAGES_LOAD_FAILED = "log.page.all-pages-load-failed";
+        public static final String ALL_PAGES_CLEAR_FAILED = "log.page.all-pages-clear-failed";
+        public static final String CROSS_PAGE_PICKUP_ERROR = "log.page.cross-page-pickup-error";
         // 数据库
         public static final String DB_INIT_COMPLETE = "log.db.init-complete";
         public static final String DB_DRIVER_NOT_FOUND = "log.db.driver-not-found";

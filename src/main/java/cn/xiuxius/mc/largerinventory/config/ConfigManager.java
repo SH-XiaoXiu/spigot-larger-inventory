@@ -1,5 +1,7 @@
 package cn.xiuxius.mc.largerinventory.config;
 
+import cn.xiuxius.mc.largerinventory.i18n.MessageKeys;
+import cn.xiuxius.mc.largerinventory.i18n.MessageManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 /**
@@ -12,10 +14,15 @@ import org.bukkit.plugin.java.JavaPlugin;
 public class ConfigManager {
 
     private final JavaPlugin plugin;
+    private MessageManager messageManager;
     private PluginConfig config;
 
     public ConfigManager(JavaPlugin plugin) {
         this.plugin = plugin;
+    }
+
+    public void setMessageManager(MessageManager messageManager) {
+        this.messageManager = messageManager;
     }
 
     /**
@@ -53,18 +60,26 @@ public class ConfigManager {
 
     private boolean validate(PluginConfig cfg) {
         if (cfg.getPrevButtonSlot() < 9 || cfg.getPrevButtonSlot() > 35) {
-            plugin.getLogger().warning("上一页按钮位置无效: " + cfg.getPrevButtonSlot() + "，必须在9-35范围内");
+            logWarning(MessageKeys.Log.CONFIG_BUTTON_SLOT_INVALID, "button", "prev", "slot", cfg.getPrevButtonSlot());
             return false;
         }
         if (cfg.getNextButtonSlot() < 9 || cfg.getNextButtonSlot() > 35) {
-            plugin.getLogger().warning("下一页按钮位置无效: " + cfg.getNextButtonSlot() + "，必须在9-35范围内");
+            logWarning(MessageKeys.Log.CONFIG_BUTTON_SLOT_INVALID, "button", "next", "slot", cfg.getNextButtonSlot());
             return false;
         }
         if (cfg.getPrevButtonSlot() == cfg.getNextButtonSlot()) {
-            plugin.getLogger().warning("两个按钮位置不能相同: " + cfg.getPrevButtonSlot());
+            logWarning(MessageKeys.Log.CONFIG_BUTTON_SLOTS_SAME, "slot", cfg.getPrevButtonSlot());
             return false;
         }
         return true;
+    }
+
+    private void logWarning(String key, Object... args) {
+        if (messageManager != null) {
+            plugin.getLogger().warning(messageManager.getLog(key, args));
+        } else {
+            plugin.getLogger().warning(key);
+        }
     }
 
     /**

@@ -48,6 +48,7 @@ command:
     data-not-found: "&c玩家数据不存在: {player}"
     get-failed: "&c获取玩家信息失败: {error}"
     effective-limit: "&e有效页数限制: &f{limit}"
+    no-limit: "无限制"
 
   name:
     set: "&a第 {page} 页已命名为: {name}"
@@ -135,6 +136,7 @@ log:
     data-load-failed: "加载玩家 {player} 数据失败: {error}"
     data-save-failed: "同步保存玩家数据失败 [{uuid}]: {error}"
     inventory-reset: "已重置玩家 {player} 的背包"
+    processing-error: "处理玩家 {player} 时出错: {error}"
 
   page:
     load-failed: "加载页面失败 [{uuid} 页{page}]: {error}"
@@ -143,6 +145,11 @@ log:
     lru-evict-failed: "LRU 驱逐写入失败 [页{page}]: {error}"
     reload-failed: "重载页面失败 [{uuid}]: {error}"
     dirty-flushed: "脏页刷写完成"
+    button-conflict-save-failed: "按钮槽冲突物品保存失败: {error}"
+    cross-page-preload-failed: "跨页预加载失败 [页{page}]: {error}"
+    all-pages-load-failed: "加载玩家所有页面物品失败: {error}"
+    all-pages-clear-failed: "清空玩家所有页面物品失败: {error}"
+    cross-page-pickup-error: "跨页拾取存储异常: {error}"
 
   handover:
     created: "为玩家 {player} 创建交接容器，共 {count} 个物品"

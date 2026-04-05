@@ -65,6 +65,7 @@ public final class LargerInventory extends JavaPlugin implements Reloadable {
         // 初始化消息管理器
         messageManager = new MessageManager(this, configManager.getConfig().getLanguage());
         messageManager.load();
+        configManager.setMessageManager(messageManager);
 
         // 初始化数据库
         databaseManager = new DatabaseManager(this, messageManager);
@@ -173,7 +174,7 @@ public final class LargerInventory extends JavaPlugin implements Reloadable {
                 new PlayerGameModeChangeListener(this, pageManager, handoverContainerManager, bypassManager, messageManager), this);
 
         // 跨页拾取监听器
-        pickupItemListener = new PlayerPickupItemListener(this, configManager, pageManager, buttonManager);
+        pickupItemListener = new PlayerPickupItemListener(this, configManager, pageManager, messageManager);
         getServer().getPluginManager().registerEvents(pickupItemListener, this);
 
         // 跨页死亡掉落监听器

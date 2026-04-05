@@ -693,7 +693,7 @@ public class PageManager implements Reloadable {
                         try {
                             pageItemDao.savePage(uuid, nextPage, overflowMap);
                         } catch (SQLException e) {
-                            plugin.getLogger().warning("按钮槽冲突物品保存失败: " + e.getMessage());
+                            plugin.getLogger().warning(messageManager.getLog(MessageKeys.Log.BUTTON_CONFLICT_SAVE_FAILED, "error", e.getMessage()));
                         }
                     });
                     if (data != null) data.maxPage = Math.max(data.maxPage, nextPage);
@@ -765,7 +765,7 @@ public class PageManager implements Reloadable {
                 try {
                     loaded.put(page, pageItemDao.loadPage(uuid, page));
                 } catch (SQLException e) {
-                    plugin.getLogger().warning("跨页预加载失败 page=" + page + ": " + e.getMessage());
+                    plugin.getLogger().warning(messageManager.getLog(MessageKeys.Log.CROSS_PAGE_PRELOAD_FAILED, "page", page + 1, "error", e.getMessage()));
                 }
             }
             plugin.getServer().getScheduler().runTask(plugin, () -> {
@@ -902,7 +902,7 @@ public class PageManager implements Reloadable {
         try {
             allItems = pageItemDao.loadAll(uuid);
         } catch (SQLException e) {
-            plugin.getLogger().warning("加载玩家所有页面物品失败: " + e.getMessage());
+            plugin.getLogger().warning(messageManager.getLog(MessageKeys.Log.ALL_PAGES_LOAD_FAILED, "error", e.getMessage()));
         }
 
         // 用脏页缓存覆盖 DB 数据（脏页 = 有未写入的最新变更；非脏页与 DB 一致，无需覆盖）
@@ -935,7 +935,7 @@ public class PageManager implements Reloadable {
             pageItemDao.clearAll(uuid);
             metaDao.update(uuid, 0, 0);
         } catch (SQLException e) {
-            plugin.getLogger().warning("清空玩家所有页面物品失败: " + e.getMessage());
+            plugin.getLogger().warning(messageManager.getLog(MessageKeys.Log.ALL_PAGES_CLEAR_FAILED, "error", e.getMessage()));
         }
 
         clearInventoryMain(player);

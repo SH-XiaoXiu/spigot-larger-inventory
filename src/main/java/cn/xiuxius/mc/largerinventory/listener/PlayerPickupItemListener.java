@@ -4,6 +4,8 @@ import cn.xiuxius.mc.largerinventory.config.ConfigManager;
 import cn.xiuxius.mc.largerinventory.config.PluginConfig;
 import cn.xiuxius.mc.largerinventory.config.ReloadResult;
 import cn.xiuxius.mc.largerinventory.config.Reloadable;
+import cn.xiuxius.mc.largerinventory.i18n.MessageKeys;
+import cn.xiuxius.mc.largerinventory.i18n.MessageManager;
 import cn.xiuxius.mc.largerinventory.inventory.ButtonManager;
 import cn.xiuxius.mc.largerinventory.inventory.PageManager;
 import org.bukkit.Sound;
@@ -41,15 +43,17 @@ public class PlayerPickupItemListener implements Listener, Reloadable {
     private final JavaPlugin plugin;
     private final ConfigManager configManager;
     private final PageManager pageManager;
+    private final MessageManager messageManager;
     // 玩家的定时任务
     private final Map<UUID, BukkitTask> playerTasks = new ConcurrentHashMap<>();
     // 正在处理中的物品UUID（防止重复处理）
     private final Set<UUID> processingItems = ConcurrentHashMap.newKeySet();
 
-    public PlayerPickupItemListener(JavaPlugin plugin, ConfigManager configManager, PageManager pageManager, @Deprecated ButtonManager ignored) {
+    public PlayerPickupItemListener(JavaPlugin plugin, ConfigManager configManager, PageManager pageManager, MessageManager messageManager) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.pageManager = pageManager;
+        this.messageManager = messageManager;
     }
 
     /**
@@ -233,7 +237,7 @@ public class PlayerPickupItemListener implements Listener, Reloadable {
                         0.2f, (float) (1.0 + Math.random() * 0.2));
             }
         } catch (Exception e) {
-            plugin.getLogger().severe("跨页拾取存储异常: " + e.getMessage());
+            plugin.getLogger().severe(messageManager.getLog(MessageKeys.Log.CROSS_PAGE_PICKUP_ERROR, "error", e.getMessage()));
             if (!itemEntity.isDead()) {
                 itemEntity.setPickupDelay(0);
             }

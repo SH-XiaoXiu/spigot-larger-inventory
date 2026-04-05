@@ -134,7 +134,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
                     resetCount++;
 
                 } catch (SQLException e) {
-                    plugin.getLogger().warning("处理玩家 " + playerName + " 时出错: " + e.getMessage());
+                    plugin.getLogger().warning(messageManager.getLog(MessageKeys.Log.PLAYER_PROCESSING_ERROR, "player", playerName, "error", e.getMessage()));
                 }
             }
 
@@ -327,7 +327,7 @@ public class AdminCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_PLAYER, "player", playerName));
             sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_CURRENT_PAGE, "page", currentPage + 1));
             sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_MAX_PAGE, "page", maxPage + 1));
-            sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_CONFIG_LIMIT, "limit", configMaxPages <= 0 ? "无限制" : String.valueOf(configMaxPages)));
+            sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_CONFIG_LIMIT, "limit", configMaxPages <= 0 ? messageManager.get(MessageKeys.Command.INFO_NO_LIMIT) : String.valueOf(configMaxPages)));
             Player onlineTarget = Bukkit.getPlayer(uuid);
             int effectiveLimit = onlineTarget != null ? pageManager.getEffectiveMaxPages(onlineTarget) : pageManager.getEffectiveMaxPages();
             sender.sendMessage(messageManager.get(MessageKeys.Command.INFO_EFFECTIVE_LIMIT, "limit", effectiveLimit));

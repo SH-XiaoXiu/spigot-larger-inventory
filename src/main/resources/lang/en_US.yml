@@ -48,6 +48,7 @@ command:
     data-not-found: "&cPlayer data not found: {player}"
     get-failed: "&cFailed to get player info: {error}"
     effective-limit: "&eEffective Page Limit: &f{limit}"
+    no-limit: "No limit"
 
   name:
     set: "&aPage {page} named: {name}"
@@ -135,6 +136,7 @@ log:
     data-load-failed: "Failed to load player {player} data: {error}"
     data-save-failed: "Failed to save player data [{uuid}]: {error}"
     inventory-reset: "Reset inventory for player {player}"
+    processing-error: "Error processing player {player}: {error}"
 
   page:
     load-failed: "Failed to load page [{uuid} page{page}]: {error}"
@@ -143,6 +145,11 @@ log:
     lru-evict-failed: "LRU eviction write failed [page {page}]: {error}"
     reload-failed: "Failed to reload page [{uuid}]: {error}"
     dirty-flushed: "Dirty pages flushed"
+    button-conflict-save-failed: "Failed to save button slot conflict items: {error}"
+    cross-page-preload-failed: "Cross-page preload failed [page {page}]: {error}"
+    all-pages-load-failed: "Failed to load all player page items: {error}"
+    all-pages-clear-failed: "Failed to clear all player page items: {error}"
+    cross-page-pickup-error: "Cross-page pickup storage error: {error}"
 
   handover:
     created: "Created handover container for player {player} with {count} items"
