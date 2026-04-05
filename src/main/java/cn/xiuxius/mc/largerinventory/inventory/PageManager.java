@@ -47,7 +47,7 @@ public class PageManager implements Reloadable {
 
     private final Map<UUID, PlayerPageData> playerDataCache = new ConcurrentHashMap<>();
     private final Map<UUID, Map<Integer, String>> pageNamesCache = new ConcurrentHashMap<>();
-    private final Set<UUID> pendingOverflow = ConcurrentHashMap.newKeySet();
+    private final Set<UUID> inventoryLocked = ConcurrentHashMap.newKeySet();
     private BiConsumer<Player, List<ItemStack>> overflowHandler;
 
     // 按钮点击防重与冷却
@@ -114,39 +114,13 @@ public class PageManager implements Reloadable {
 
     /**
      * 统一处理所有溢出物品（按钮槽冲突 + 页数限制超出）。
-     * 如果玩家正在查看其他容器，延迟到关闭后执行。
+     * 加锁 → 关闭容器 → 同步处理按钮冲突 → 异步处理页数超出 → 解锁。
      */
     public void processOverflow(Player player) {
-        if (isPlayerInventoryBusy(player)) {
-            pendingOverflow.add(player.getUniqueId());
-            player.sendMessage(messageManager.get(MessageKeys.Player.OVERFLOW_PENDING));
-            return;
-        }
-        executeOverflow(player);
-    }
-
-    /**
-     * 玩家关闭容器后调用，处理延迟的溢出。
-     */
-    public void onInventoryClose(Player player) {
-        if (pendingOverflow.remove(player.getUniqueId())) {
-            // 延迟 1 tick 确保关闭完成
-            plugin.getServer().getScheduler().runTask(plugin, () -> {
-                if (!player.isOnline()) return;
-                executeOverflow(player);
-            });
-        }
-    }
-
-    /**
-     * 是否有待处理的溢出（用于拦截翻页等操作）。
-     */
-    public boolean hasPendingOverflow(UUID uuid) {
-        return pendingOverflow.contains(uuid);
-    }
-
-    private void executeOverflow(Player player) {
-        pendingOverflow.remove(player.getUniqueId());
+        UUID uuid = player.getUniqueId();
+        inventoryLocked.add(uuid);
+        player.closeInventory();
+        player.sendMessage(messageManager.get(MessageKeys.Player.OVERFLOW_PENDING));
 
         // 1. 按钮槽冲突（同步）
         List<ItemStack> buttonOverflow = handleButtonSlotConflict(player);
@@ -154,23 +128,31 @@ public class PageManager implements Reloadable {
             overflowHandler.accept(player, buttonOverflow);
         }
 
-        // 2. 页数限制超出（异步 DB 操作）
+        // 2. 页数限制超出（异步 DB 操作，完成后解锁）
         handlePageLimitOverflow(player);
     }
 
-    private boolean isPlayerInventoryBusy(Player player) {
-        var type = player.getOpenInventory().getType();
-        return type != org.bukkit.event.inventory.InventoryType.CRAFTING
-                && type != org.bukkit.event.inventory.InventoryType.CREATIVE;
+    /**
+     * 背包是否处于锁定状态（整理中）。
+     */
+    public boolean isInventoryLocked(UUID uuid) {
+        return inventoryLocked.contains(uuid);
     }
 
     private void handlePageLimitOverflow(Player player) {
         UUID uuid = player.getUniqueId();
         PlayerPageData data = playerDataCache.get(uuid);
-        if (data == null) return;
+        if (data == null) {
+            inventoryLocked.remove(uuid);
+            return;
+        }
 
         int effectiveMax = getEffectiveMaxPages(player);
-        if (data.maxPage < effectiveMax) return;
+        if (data.maxPage < effectiveMax) {
+            // 无需处理，直接解锁
+            inventoryLocked.remove(uuid);
+            return;
+        }
 
         // 先调整内存状态（主线程）
         int oldMaxPage = data.maxPage;
@@ -178,7 +160,6 @@ public class PageManager implements Reloadable {
         data.maxPage = newMaxPage;
         if (data.currentPage >= effectiveMax) {
             data.currentPage = newMaxPage;
-            // 加载新当前页（如果缓存中有）
             Map<Integer, ItemStack> cached = data.cache.get(newMaxPage);
             if (cached != null) {
                 clearInventoryMain(player);
@@ -196,9 +177,12 @@ public class PageManager implements Reloadable {
                 // 异步线程内预加载当前页
                 Map<Integer, ItemStack> currentItems = pageItemDao.loadPage(uuid, data.currentPage);
 
-                // 回到主线程：刷新显示 + 交接 + 通知
+                // 回到主线程：刷新显示 + 交接 + 通知 + 解锁
                 plugin.getServer().getScheduler().runTask(plugin, () -> {
-                    if (!player.isOnline()) return;
+                    if (!player.isOnline()) {
+                        inventoryLocked.remove(uuid);
+                        return;
+                    }
                     data.cache.put(data.currentPage, currentItems);
                     clearInventoryMain(player);
                     loadItemsToInventory(player, currentItems);
@@ -210,10 +194,12 @@ public class PageManager implements Reloadable {
                     } else {
                         player.sendMessage(messageManager.get(MessageKeys.Player.OVERFLOW_REORGANIZED));
                     }
+                    inventoryLocked.remove(uuid);
                 });
             } catch (SQLException e) {
                 plugin.getLogger().severe(messageManager.getLog(MessageKeys.Log.PLAYER_DATA_SAVE_FAILED,
                         "uuid", uuid, "error", e.getMessage()));
+                inventoryLocked.remove(uuid);
             }
         });
     }
@@ -274,7 +260,7 @@ public class PageManager implements Reloadable {
         flushDirtyPagesSync(uuid, data);
         playerDataCache.remove(uuid);
         pageNamesCache.remove(uuid);
-        pendingOverflow.remove(uuid);
+        inventoryLocked.remove(uuid);
     }
 
     public void prevPage(Player player) {
@@ -303,8 +289,7 @@ public class PageManager implements Reloadable {
 
     public void switchToPage(Player player, int targetPage) {
         UUID uuid = player.getUniqueId();
-        if (pendingOverflow.contains(uuid)) {
-            player.sendMessage(messageManager.get(MessageKeys.Player.OVERFLOW_PENDING));
+        if (inventoryLocked.contains(uuid)) {
             return;
         }
         PlayerPageData data = playerDataCache.get(uuid);
@@ -377,11 +362,12 @@ public class PageManager implements Reloadable {
             pageTurnCooldown.add(uuid);
             Bukkit.getScheduler().runTaskLater(plugin, () -> pageTurnCooldown.remove(uuid), 2L);
 
-            // 检测页数限制是否缩减（权限在线变更），自动触发溢出处理
+            if (inventoryLocked.contains(uuid)) return;
+
+            // 检测页数限制缩减（权限在线变更），自动触发溢出处理
             PlayerPageData clickData = playerDataCache.get(uuid);
             if (clickData != null && clickData.maxPage >= getEffectiveMaxPages(player)) {
                 processOverflow(player);
-                player.updateInventory();
                 return;
             }
 

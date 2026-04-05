@@ -1,7 +1,6 @@
 package cn.xiuxius.mc.largerinventory.listener;
 
 import cn.xiuxius.mc.largerinventory.handover.HandoverContainerManager;
-import cn.xiuxius.mc.largerinventory.inventory.PageManager;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -22,12 +21,10 @@ public class HandoverContainerListener implements Listener {
 
     private final JavaPlugin plugin;
     private final HandoverContainerManager containerManager;
-    private final PageManager pageManager;
 
-    public HandoverContainerListener(JavaPlugin plugin, HandoverContainerManager containerManager, PageManager pageManager) {
+    public HandoverContainerListener(JavaPlugin plugin, HandoverContainerManager containerManager) {
         this.plugin = plugin;
         this.containerManager = containerManager;
-        this.pageManager = pageManager;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -136,8 +133,5 @@ public class HandoverContainerListener implements Listener {
         if (containerManager.isHandoverContainer(topInventory)) {
             containerManager.onClose(player);
         }
-
-        // 处理延迟的溢出交接
-        pageManager.onInventoryClose(player);
     }
 }

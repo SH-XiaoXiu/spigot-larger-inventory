@@ -41,6 +41,10 @@ public class InventoryClickListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = false)
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (pageManager.isInventoryLocked(player.getUniqueId())) {
+            event.setCancelled(true);
+            return;
+        }
         if (!pageManager.isButtonsEnabled()) return;
 
         boolean isPlayerInv = event.getClickedInventory() instanceof PlayerInventory;
