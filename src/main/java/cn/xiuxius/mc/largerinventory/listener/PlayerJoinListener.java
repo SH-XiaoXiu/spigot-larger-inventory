@@ -1,5 +1,6 @@
 package cn.xiuxius.mc.largerinventory.listener;
 
+import cn.xiuxius.mc.largerinventory.config.ConfigManager;
 import cn.xiuxius.mc.largerinventory.handover.HandoverContainerManager;
 import cn.xiuxius.mc.largerinventory.i18n.MessageKeys;
 import cn.xiuxius.mc.largerinventory.i18n.MessageManager;
@@ -9,6 +10,7 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.plugin.java.JavaPlugin;
 
 /**
  * 玩家加入事件监听器
@@ -16,11 +18,17 @@ import org.bukkit.event.player.PlayerJoinEvent;
  */
 public class PlayerJoinListener implements Listener {
 
+    private final JavaPlugin plugin;
+    private final ConfigManager configManager;
     private final PageManager pageManager;
     private final HandoverContainerManager handoverManager;
     private final MessageManager messageManager;
 
-    public PlayerJoinListener(PageManager pageManager, HandoverContainerManager handoverManager, MessageManager messageManager) {
+    public PlayerJoinListener(JavaPlugin plugin, ConfigManager configManager,
+                              PageManager pageManager, HandoverContainerManager handoverManager,
+                              MessageManager messageManager) {
+        this.plugin = plugin;
+        this.configManager = configManager;
         this.pageManager = pageManager;
         this.handoverManager = handoverManager;
         this.messageManager = messageManager;
@@ -39,6 +47,17 @@ public class PlayerJoinListener implements Listener {
             int count = handoverManager.getContainerItemCount(player.getUniqueId());
             player.sendMessage(messageManager.get(MessageKeys.Player.ITEMS_PENDING, "count", count));
             player.sendMessage(messageManager.get(MessageKeys.Player.RETRIEVE_HINT));
+        }
+
+        // 推送资源包
+        String url = configManager.getConfig().getResourcePackUrl();
+        if (url != null) {
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                if (!player.isOnline()) return;
+                player.setResourcePack(url, null,
+                        configManager.getConfig().getResourcePackPrompt(),
+                        configManager.getConfig().isResourcePackRequired());
+            }, 20L);
         }
     }
 }

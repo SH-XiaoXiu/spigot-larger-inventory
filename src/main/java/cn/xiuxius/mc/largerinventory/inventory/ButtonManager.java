@@ -70,7 +70,9 @@ public class ButtonManager {
             meta.setLore(lore);
 
             // 自定义模型数据
-            int cmd = configManager.getConfig().getPrevCustomModelData();
+            int cmd = canPrev
+                    ? configManager.getConfig().getPrevCustomModelData()
+                    : configManager.getConfig().getDisabledCustomModelData();
             if (cmd > 0) {
                 meta.setCustomModelData(cmd);
             }
@@ -121,7 +123,9 @@ public class ButtonManager {
             meta.setLore(lore);
 
             // 自定义模型数据
-            int cmd = configManager.getConfig().getNextCustomModelData();
+            int cmd = canNext
+                    ? configManager.getConfig().getNextCustomModelData()
+                    : configManager.getConfig().getDisabledCustomModelData();
             if (cmd > 0) {
                 meta.setCustomModelData(cmd);
             }

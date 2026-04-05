@@ -1,0 +1,26 @@
+{
+  "model": {
+    "type": "range_dispatch",
+    "property": "custom_model_data",
+    "fallback": {
+      "type": "model",
+      "model": "minecraft:item/arrow"
+    },
+    "entries": [
+      {
+        "threshold": 1001,
+        "model": {
+          "type": "model",
+          "model": "minecraft:item/largerinventory/prev_page"
+        }
+      },
+      {
+        "threshold": 1002,
+        "model": {
+          "type": "model",
+          "model": "minecraft:item/largerinventory/next_page"
+        }
+      }
+    ]
+  }
+}

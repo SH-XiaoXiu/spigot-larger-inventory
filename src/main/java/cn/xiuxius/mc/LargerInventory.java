@@ -108,6 +108,9 @@ public final class LargerInventory extends JavaPlugin implements Reloadable {
         // 注册命令
         registerCommands();
 
+        // 释放示例资源包模板
+        saveResourcePackTemplate();
+
         // 启动定时任务
         startScheduledTasks();
 
@@ -170,7 +173,7 @@ public final class LargerInventory extends JavaPlugin implements Reloadable {
 
         // 玩家加入/退出监听器
         getServer().getPluginManager().registerEvents(
-                new PlayerJoinListener(pageManager, handoverContainerManager, messageManager), this);
+                new PlayerJoinListener(this, configManager, pageManager, handoverContainerManager, messageManager), this);
         getServer().getPluginManager().registerEvents(
                 new PlayerQuitListener(pageManager), this);
 
@@ -207,6 +210,26 @@ public final class LargerInventory extends JavaPlugin implements Reloadable {
     /**
      * 启动定时任务
      */
+    private void saveResourcePackTemplate() {
+        String[] templateFiles = {
+                "resource-pack/pack.mcmeta",
+                "resource-pack/assets/minecraft/items/arrow.json",
+                "resource-pack/assets/minecraft/items/gray_stained_glass_pane.json",
+                "resource-pack/assets/minecraft/models/item/largerinventory/prev_page.json",
+                "resource-pack/assets/minecraft/models/item/largerinventory/next_page.json",
+                "resource-pack/assets/minecraft/models/item/largerinventory/disabled.json",
+                "resource-pack/assets/minecraft/textures/item/largerinventory/prev_page.png",
+                "resource-pack/assets/minecraft/textures/item/largerinventory/next_page.png",
+                "resource-pack/assets/minecraft/textures/item/largerinventory/disabled.png"
+        };
+        for (String path : templateFiles) {
+            java.io.File file = new java.io.File(getDataFolder(), path);
+            if (!file.exists()) {
+                saveResource(path, false);
+            }
+        }
+    }
+
     private void startScheduledTasks() {
         int autoSaveInterval = configManager.getConfig().getAutoSaveIntervalSeconds();
 

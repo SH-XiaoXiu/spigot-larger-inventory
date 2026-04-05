@@ -27,6 +27,7 @@ public final class PluginConfig {
     private final float pageTurnPitch;
     private final int prevCustomModelData;
     private final int nextCustomModelData;
+    private final int disabledCustomModelData;
     private final String databaseType;
     private final String mysqlHost;
     private final int mysqlPort;
@@ -34,6 +35,9 @@ public final class PluginConfig {
     private final String mysqlUsername;
     private final String mysqlPassword;
     private final int mysqlPoolSize;
+    private final String resourcePackUrl;
+    private final boolean resourcePackRequired;
+    private final String resourcePackPrompt;
 
     private PluginConfig(String language,
                          int prevButtonSlot, int nextButtonSlot,
@@ -41,9 +45,10 @@ public final class PluginConfig {
                          int maxPages, int backupRetentionDays, int autoSaveIntervalSeconds,
                          boolean crossPagePickup, boolean crossPageDeathDrop,
                          String pageTurnSound, float pageTurnVolume, float pageTurnPitch,
-                         int prevCustomModelData, int nextCustomModelData,
+                         int prevCustomModelData, int nextCustomModelData, int disabledCustomModelData,
                          String databaseType, String mysqlHost, int mysqlPort,
-                         String mysqlDatabase, String mysqlUsername, String mysqlPassword, int mysqlPoolSize) {
+                         String mysqlDatabase, String mysqlUsername, String mysqlPassword, int mysqlPoolSize,
+                         String resourcePackUrl, boolean resourcePackRequired, String resourcePackPrompt) {
         this.language = language;
         this.prevButtonSlot = prevButtonSlot;
         this.nextButtonSlot = nextButtonSlot;
@@ -59,6 +64,7 @@ public final class PluginConfig {
         this.pageTurnPitch = pageTurnPitch;
         this.prevCustomModelData = prevCustomModelData;
         this.nextCustomModelData = nextCustomModelData;
+        this.disabledCustomModelData = disabledCustomModelData;
         this.databaseType = databaseType;
         this.mysqlHost = mysqlHost;
         this.mysqlPort = mysqlPort;
@@ -66,6 +72,9 @@ public final class PluginConfig {
         this.mysqlUsername = mysqlUsername;
         this.mysqlPassword = mysqlPassword;
         this.mysqlPoolSize = mysqlPoolSize;
+        this.resourcePackUrl = resourcePackUrl;
+        this.resourcePackRequired = resourcePackRequired;
+        this.resourcePackPrompt = resourcePackPrompt;
     }
 
     /**
@@ -90,14 +99,22 @@ public final class PluginConfig {
                 (float) cfg.getDouble("buttons.page-turn-pitch", 1.0),
                 cfg.getInt("buttons.prev-custom-model-data", 0),
                 cfg.getInt("buttons.next-custom-model-data", 0),
+                cfg.getInt("buttons.disabled-custom-model-data", 0),
                 cfg.getString("database.type", "sqlite").toLowerCase(),
                 cfg.getString("database.mysql.host", "localhost"),
                 cfg.getInt("database.mysql.port", 3306),
                 cfg.getString("database.mysql.database", "largerinventory"),
                 cfg.getString("database.mysql.username", "root"),
                 cfg.getString("database.mysql.password", ""),
-                cfg.getInt("database.mysql.pool-size", 10)
+                cfg.getInt("database.mysql.pool-size", 10),
+                parseNullableString(cfg.getString("resource-pack.url", "")),
+                cfg.getBoolean("resource-pack.required", false),
+                parseNullableString(cfg.getString("resource-pack.prompt", ""))
         );
+    }
+
+    private static String parseNullableString(String value) {
+        return (value == null || value.isEmpty()) ? null : value;
     }
 
     private static Material parseMaterial(String name) {
@@ -173,6 +190,10 @@ public final class PluginConfig {
         return nextCustomModelData;
     }
 
+    public int getDisabledCustomModelData() {
+        return disabledCustomModelData;
+    }
+
     public boolean isMysql() {
         return "mysql".equals(databaseType);
     }
@@ -203,5 +224,17 @@ public final class PluginConfig {
 
     public int getMysqlPoolSize() {
         return mysqlPoolSize;
+    }
+
+    public String getResourcePackUrl() {
+        return resourcePackUrl;
+    }
+
+    public boolean isResourcePackRequired() {
+        return resourcePackRequired;
+    }
+
+    public String getResourcePackPrompt() {
+        return resourcePackPrompt;
     }
 }

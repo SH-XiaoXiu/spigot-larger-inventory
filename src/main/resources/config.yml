@@ -23,6 +23,7 @@ buttons:
   # 用于资源包自定义按钮纹理 / For resource pack custom button textures
   prev-custom-model-data: 0
   next-custom-model-data: 0
+  disabled-custom-model-data: 0
 
 # 分页限制 / Page limits
 limits:
@@ -38,6 +39,15 @@ features:
   # 跨页死亡掉落：死亡时所有页面的物品都会掉落（与游戏规则 keepInventory 同步）
   # Cross-page death drop: items from all pages drop on death (syncs with keepInventory game rule)
   cross-page-death-drop: true
+
+# 资源包设置 / Resource pack settings
+resource-pack:
+  # 资源包 URL（留空禁用）/ Resource pack URL (empty to disable)
+  url: ""
+  # 是否强制使用 / Force players to use the resource pack
+  required: false
+  # 提示消息 / Prompt message shown to player
+  prompt: ""
 
 # 数据库设置 / Database settings
 database:
