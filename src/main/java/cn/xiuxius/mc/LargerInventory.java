@@ -5,6 +5,7 @@ import cn.xiuxius.mc.largerinventory.config.*;
 import cn.xiuxius.mc.largerinventory.database.DatabaseManager;
 import cn.xiuxius.mc.largerinventory.database.HandoverDAO;
 import cn.xiuxius.mc.largerinventory.database.PageItemDAO;
+import cn.xiuxius.mc.largerinventory.database.PageNameDAO;
 import cn.xiuxius.mc.largerinventory.database.PlayerMetaDAO;
 import cn.xiuxius.mc.largerinventory.handover.HandoverContainerManager;
 import cn.xiuxius.mc.largerinventory.i18n.MessageKeys;
@@ -29,6 +30,7 @@ public final class LargerInventory extends JavaPlugin implements Reloadable {
     private PlayerMetaDAO playerMetaDAO;
     private PageItemDAO pageItemDAO;
     private HandoverDAO handoverDAO;
+    private PageNameDAO pageNameDAO;
     private ButtonManager buttonManager;
     private PageManager pageManager;
     private HandoverContainerManager handoverContainerManager;
@@ -72,12 +74,13 @@ public final class LargerInventory extends JavaPlugin implements Reloadable {
         playerMetaDAO = new PlayerMetaDAO(databaseManager);
         pageItemDAO = new PageItemDAO(databaseManager);
         handoverDAO = new HandoverDAO(databaseManager);
+        pageNameDAO = new PageNameDAO(databaseManager);
 
         // 初始化按钮管理器
         buttonManager = new ButtonManager(this, configManager, messageManager);
 
         // 初始化分页管理器
-        pageManager = new PageManager(this, configManager, buttonManager, messageManager, playerMetaDAO, pageItemDAO);
+        pageManager = new PageManager(this, configManager, buttonManager, messageManager, playerMetaDAO, pageItemDAO, pageNameDAO);
 
         // 初始化交接容器管理器
         handoverContainerManager = new HandoverContainerManager(this, messageManager, handoverDAO);

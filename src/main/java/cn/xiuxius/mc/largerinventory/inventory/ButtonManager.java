@@ -42,7 +42,7 @@ public class ButtonManager {
      * @param canPrev     是否可以翻到上一页
      * @return 按钮物品
      */
-    public ItemStack createPrevButton(int currentPage, boolean canPrev) {
+    public ItemStack createPrevButton(int currentPage, boolean canPrev, String pageName) {
         Material material = canPrev ? configManager.getConfig().getPrevButtonMaterial() : Material.GRAY_STAINED_GLASS_PANE;
         ItemStack button = new ItemStack(material);
         ItemMeta meta = button.getItemMeta();
@@ -63,6 +63,9 @@ public class ButtonManager {
                 lore.add(messageManager.get(MessageKeys.Button.PREV_LORE_CLICK));
             } else {
                 lore.add(messageManager.get(MessageKeys.Button.PREV_LORE_CANNOT));
+            }
+            if (pageName != null) {
+                lore.add(messageManager.get(MessageKeys.Button.PAGE_NAME, "name", pageName));
             }
             meta.setLore(lore);
 
@@ -89,7 +92,7 @@ public class ButtonManager {
      * @param canNext     是否可以翻到下一页
      * @return 按钮物品
      */
-    public ItemStack createNextButton(int currentPage, int maxPage, boolean canNext) {
+    public ItemStack createNextButton(int currentPage, int maxPage, boolean canNext, String pageName) {
         Material material = canNext ? configManager.getConfig().getNextButtonMaterial() : Material.GRAY_STAINED_GLASS_PANE;
         ItemStack button = new ItemStack(material);
         ItemMeta meta = button.getItemMeta();
@@ -111,6 +114,9 @@ public class ButtonManager {
                 lore.add(messageManager.get(MessageKeys.Button.NEXT_LORE_CLICK));
             } else {
                 lore.add(messageManager.get(MessageKeys.Button.NEXT_LORE_CANNOT));
+            }
+            if (pageName != null) {
+                lore.add(messageManager.get(MessageKeys.Button.PAGE_NAME, "name", pageName));
             }
             meta.setLore(lore);
 

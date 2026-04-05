@@ -11,6 +11,7 @@ command:
     info: "&e/largerinventory info [player] &f- 查看玩家背包信息"
     bypass: "&e/largerinventory bypass &f- 创造模式下临时解除按钮槽拦截"
     goto: "&e/largerinventory goto <页码> &f- 跳转到指定页"
+    name: "&e/largerinventory name [名称] &f- 为当前页命名（留空清除）"
 
   error:
     no-permission: "&c你没有权限执行此命令。"
@@ -47,6 +48,11 @@ command:
     data-not-found: "&c玩家数据不存在: {player}"
     get-failed: "&c获取玩家信息失败: {error}"
     effective-limit: "&e有效页数限制: &f{limit}"
+
+  name:
+    set: "&a第 {page} 页已命名为: {name}"
+    cleared: "&a第 {page} 页的名称已清除。"
+    too-long: "&c名称过长，最大 {max} 个字符。"
 
   goto:
     usage: "&c用法: /li goto <页码>"
@@ -98,6 +104,7 @@ button:
       max: "&e最大页: {page}"
       click: "&a点击翻到下一页"
       cannot: "&c无法继续向后"
+  page-name: "&b页面: {name}"
 
 # ==================== 日志消息 ====================
 log:

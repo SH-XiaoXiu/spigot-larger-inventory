@@ -11,6 +11,7 @@ command:
     info: "&e/largerinventory info [player] &f- View player inventory info"
     bypass: "&e/largerinventory bypass &f- Temporarily disable button slot interception in creative mode"
     goto: "&e/largerinventory goto <page> &f- Jump to a specific page"
+    name: "&e/largerinventory name [name] &f- Name current page (empty to clear)"
 
   error:
     no-permission: "&cYou do not have permission to execute this command."
@@ -47,6 +48,11 @@ command:
     data-not-found: "&cPlayer data not found: {player}"
     get-failed: "&cFailed to get player info: {error}"
     effective-limit: "&eEffective Page Limit: &f{limit}"
+
+  name:
+    set: "&aPage {page} named: {name}"
+    cleared: "&aPage {page} name cleared."
+    too-long: "&cName too long. Maximum {max} characters."
 
   goto:
     usage: "&cUsage: /li goto <page>"
@@ -98,6 +104,7 @@ button:
       max: "&eMax Page: {page}"
       click: "&aClick to go to next page"
       cannot: "&cCannot go further forward"
+  page-name: "&bPage: {name}"
 
 # ==================== Log Messages ====================
 log:

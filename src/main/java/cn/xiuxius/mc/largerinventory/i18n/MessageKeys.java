@@ -22,6 +22,11 @@ public final class MessageKeys {
         public static final String HELP_INFO = "command.help.info";
         public static final String HELP_BYPASS = "command.help.bypass";
         public static final String HELP_GOTO = "command.help.goto";
+        public static final String HELP_NAME = "command.help.name";
+        // name 命令
+        public static final String NAME_SET = "command.name.set";
+        public static final String NAME_CLEARED = "command.name.cleared";
+        public static final String NAME_TOO_LONG = "command.name.too-long";
         // 权限
         public static final String NO_PERMISSION = "command.error.no-permission";
         public static final String PLAYER_ONLY = "command.error.player-only";
@@ -110,6 +115,7 @@ public final class MessageKeys {
         public static final String NEXT_LORE_MAX = "button.next.lore.max";
         public static final String NEXT_LORE_CLICK = "button.next.lore.click";
         public static final String NEXT_LORE_CANNOT = "button.next.lore.cannot";
+        public static final String PAGE_NAME = "button.page-name";
 
         private Button() {
         }

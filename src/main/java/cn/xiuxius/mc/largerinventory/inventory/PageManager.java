@@ -5,6 +5,7 @@ import cn.xiuxius.mc.largerinventory.config.PluginConfig;
 import cn.xiuxius.mc.largerinventory.config.ReloadResult;
 import cn.xiuxius.mc.largerinventory.config.Reloadable;
 import cn.xiuxius.mc.largerinventory.database.PageItemDAO;
+import cn.xiuxius.mc.largerinventory.database.PageNameDAO;
 import cn.xiuxius.mc.largerinventory.database.PlayerMetaDAO;
 import cn.xiuxius.mc.largerinventory.database.cache.PageCache;
 import cn.xiuxius.mc.largerinventory.database.model.PlayerMeta;
@@ -42,8 +43,10 @@ public class PageManager implements Reloadable {
     private final MessageManager messageManager;
     private final PlayerMetaDAO metaDao;
     private final PageItemDAO pageItemDao;
+    private final PageNameDAO pageNameDao;
 
     private final Map<UUID, PlayerPageData> playerDataCache = new ConcurrentHashMap<>();
+    private final Map<UUID, Map<Integer, String>> pageNamesCache = new ConcurrentHashMap<>();
     private BiConsumer<Player, List<ItemStack>> overflowHandler;
 
     // 按钮点击防重与冷却
@@ -53,13 +56,14 @@ public class PageManager implements Reloadable {
 
     public PageManager(JavaPlugin plugin, ConfigManager configManager,
                        ButtonManager buttonManager, MessageManager messageManager,
-                       PlayerMetaDAO metaDao, PageItemDAO pageItemDao) {
+                       PlayerMetaDAO metaDao, PageItemDAO pageItemDao, PageNameDAO pageNameDao) {
         this.plugin = plugin;
         this.configManager = configManager;
         this.buttonManager = buttonManager;
         this.messageManager = messageManager;
         this.metaDao = metaDao;
         this.pageItemDao = pageItemDao;
+        this.pageNameDao = pageNameDao;
     }
 
     /**
@@ -84,6 +88,14 @@ public class PageManager implements Reloadable {
             Map<Integer, ItemStack> items = pageItemDao.loadPage(uuid, currentPage);
             data.cache.put(currentPage, items);
             loadItemsToInventory(player, items);
+
+            // 加载页面名称
+            try {
+                pageNamesCache.put(uuid, pageNameDao.getAll(uuid));
+            } catch (SQLException ignored) {
+                pageNamesCache.put(uuid, new HashMap<>());
+            }
+
             updateButtons(player, currentPage, maxPage);
 
             plugin.getLogger().info(messageManager.getLog(MessageKeys.Log.PLAYER_DATA_LOADED,
@@ -222,6 +234,7 @@ public class PageManager implements Reloadable {
         snapshotToCache(player, data);
         flushDirtyPagesSync(uuid, data);
         playerDataCache.remove(uuid);
+        pageNamesCache.remove(uuid);
     }
 
     public void prevPage(Player player) {
@@ -497,6 +510,50 @@ public class PageManager implements Reloadable {
         return ReloadResult.ok();
     }
 
+    public int getCurrentPage(UUID uuid) {
+        PlayerPageData data = playerDataCache.get(uuid);
+        return data != null ? data.currentPage : 0;
+    }
+
+    public int getMaxPage(UUID uuid) {
+        PlayerPageData data = playerDataCache.get(uuid);
+        return data != null ? data.maxPage : 0;
+    }
+
+    public String getPageName(UUID uuid, int page) {
+        Map<Integer, String> names = pageNamesCache.get(uuid);
+        return names != null ? names.get(page) : null;
+    }
+
+    public void setPageName(Player player, int page, String name) {
+        UUID uuid = player.getUniqueId();
+        pageNamesCache.computeIfAbsent(uuid, k -> new HashMap<>()).put(page, name);
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                pageNameDao.set(uuid, page, name);
+            } catch (SQLException e) {
+                plugin.getLogger().warning(messageManager.getLog(MessageKeys.Log.PLAYER_DATA_SAVE_FAILED,
+                        "uuid", uuid, "error", e.getMessage()));
+            }
+        });
+        restoreButtons(player);
+    }
+
+    public void clearPageName(Player player, int page) {
+        UUID uuid = player.getUniqueId();
+        Map<Integer, String> names = pageNamesCache.get(uuid);
+        if (names != null) names.remove(page);
+        plugin.getServer().getScheduler().runTaskAsynchronously(plugin, () -> {
+            try {
+                pageNameDao.delete(uuid, page);
+            } catch (SQLException e) {
+                plugin.getLogger().warning(messageManager.getLog(MessageKeys.Log.PLAYER_DATA_SAVE_FAILED,
+                        "uuid", uuid, "error", e.getMessage()));
+            }
+        });
+        restoreButtons(player);
+    }
+
     public boolean isButtonsEnabled() {
         return getEffectiveMaxPages() > 1;
     }
@@ -510,10 +567,12 @@ public class PageManager implements Reloadable {
         }
         boolean canPrev = currentPage > 0;
         boolean canNext = currentPage < getEffectiveMaxPages(player) - 1;
+        Map<Integer, String> names = pageNamesCache.get(player.getUniqueId());
+        String pageName = names != null ? names.get(currentPage) : null;
         player.getInventory().setItem(cfg.getPrevButtonSlot(),
-                buttonManager.createPrevButton(currentPage, canPrev));
+                buttonManager.createPrevButton(currentPage, canPrev, pageName));
         player.getInventory().setItem(cfg.getNextButtonSlot(),
-                buttonManager.createNextButton(currentPage, maxPage, canNext));
+                buttonManager.createNextButton(currentPage, maxPage, canNext, pageName));
     }
 
     private void clearInventoryMain(Player player) {
@@ -887,16 +946,6 @@ public class PageManager implements Reloadable {
 
     public PlayerPageData getPlayerData(UUID uuid) {
         return playerDataCache.get(uuid);
-    }
-
-    public int getCurrentPage(UUID uuid) {
-        PlayerPageData data = playerDataCache.get(uuid);
-        return data != null ? data.currentPage : 0;
-    }
-
-    public int getMaxPage(UUID uuid) {
-        PlayerPageData data = playerDataCache.get(uuid);
-        return data != null ? data.maxPage : 0;
     }
 
     /**

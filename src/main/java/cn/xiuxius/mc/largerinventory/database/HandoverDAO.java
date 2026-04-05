@@ -17,7 +17,7 @@ import java.util.UUID;
  */
 public class HandoverDAO {
 
-    private static final int DATA_VERSION = DatabaseManager.DATABASE_VERSION;
+    private static final int DATA_VERSION = 1;
     private final DatabaseManager db;
 
     public HandoverDAO(DatabaseManager db) {
