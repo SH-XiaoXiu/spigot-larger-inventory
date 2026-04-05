@@ -166,10 +166,44 @@ public class PlayerPickupItemListener implements Listener, Reloadable {
             return;
         }
 
-        // 禁止物品被其他方式拾取
+        // 禁止物品被其他方式拾取（预加载期间锁定）
         itemEntity.setPickupDelay(9999);
 
-        // 飞行动画（纯视觉，不阻塞存储逻辑）
+        // 先预加载缓存页，确认能存入后再播动画+存储
+        pageManager.preloadPagesForPickup(player, () -> {
+            if (itemEntity.isDead()) {
+                processingItems.remove(itemUUID);
+                return;
+            }
+
+            // 检查跨页是否有空间
+            ItemStack currentItem = itemEntity.getItemStack();
+            int remaining = pageManager.addItemAcrossPages(player, currentItem);
+
+            if (remaining >= currentItem.getAmount()) {
+                // 完全放不下，恢复物品状态，不播动画
+                itemEntity.setPickupDelay(0);
+                processingItems.remove(itemUUID);
+                return;
+            }
+
+            // 能存（全部或部分），播放飞行动画
+            playPickupAnimation(player, itemEntity);
+
+            if (remaining > 0) {
+                currentItem.setAmount(remaining);
+                itemEntity.setItemStack(currentItem);
+                itemEntity.setPickupDelay(0);
+            } else {
+                itemEntity.remove();
+                player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP,
+                        0.2f, (float) (1.0 + Math.random() * 0.2));
+            }
+            processingItems.remove(itemUUID);
+        });
+    }
+
+    private void playPickupAnimation(Player player, Item itemEntity) {
         Vector toPlayer = player.getLocation().add(0, 0.5, 0)
                 .toVector().subtract(itemEntity.getLocation().toVector());
         double distance = toPlayer.length();
@@ -187,62 +221,6 @@ public class PlayerPickupItemListener implements Listener, Reloadable {
                         .toVector().subtract(itemEntity.getLocation().toVector()).normalize();
                 itemEntity.setVelocity(dir.multiply(0.4 + updateIndex * 0.15));
             }, i * VELOCITY_UPDATE_INTERVAL);
-        }
-
-        // 预加载完成后立即存储（不等待动画结束）
-        pageManager.preloadPagesForPickup(player, () -> {
-            doStore(player, itemEntity, itemUUID);
-        });
-    }
-
-    /**
-     * 执行实际的跨页存储逻辑。
-     * 先尝试存储，成功后移除实体并播放音效；失败则恢复实体状态让下一轮重试。
-     */
-    private void doStore(Player player, Item itemEntity, UUID itemUUID) {
-        // 检查物品是否还存在（可能被 Paper 物品合并吸收）
-        if (itemEntity.isDead()) {
-            processingItems.remove(itemUUID);
-            return;
-        }
-
-        // 玩家数据不存在（已下线），恢复实体让其他玩家可拾取
-        PageManager.PlayerPageData data = pageManager.getPlayerData(player.getUniqueId());
-        if (data == null) {
-            itemEntity.setPickupDelay(0);
-            processingItems.remove(itemUUID);
-            return;
-        }
-
-        // 正在翻页，延迟重试
-        if (data.isSwitching()) {
-            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                doStore(player, itemEntity, itemUUID);
-            }, 20L);
-            return;
-        }
-
-        try {
-            // 重新读取实体当前物品（Paper 可能合并了其他实体，数量会变化）
-            ItemStack currentItem = itemEntity.getItemStack();
-            int remaining = pageManager.addItemAcrossPages(player, currentItem);
-
-            if (remaining > 0) {
-                currentItem.setAmount(remaining);
-                itemEntity.setItemStack(currentItem);
-                itemEntity.setPickupDelay(0);
-            } else {
-                itemEntity.remove();
-                player.playSound(player.getLocation(), Sound.ENTITY_ITEM_PICKUP,
-                        0.2f, (float) (1.0 + Math.random() * 0.2));
-            }
-        } catch (Exception e) {
-            plugin.getLogger().severe(messageManager.getLog(MessageKeys.Log.CROSS_PAGE_PICKUP_ERROR, "error", e.getMessage()));
-            if (!itemEntity.isDead()) {
-                itemEntity.setPickupDelay(0);
-            }
-        } finally {
-            processingItems.remove(itemUUID);
         }
     }
 
